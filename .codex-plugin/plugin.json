@@ -1,0 +1,43 @@
+{
+  "name": "ppt-editorial",
+  "version": "0.1.0",
+  "description": "Reference-quality 16:9 slide deck harness driven by image generation, with a four-stage director/generate/critic pipeline.",
+  "author": {
+    "name": "Dayoooun",
+    "url": "https://github.com/Dayoooun"
+  },
+  "homepage": "https://github.com/Dayoooun/ppt-editorial",
+  "repository": "https://github.com/Dayoooun/ppt-editorial",
+  "license": "MIT",
+  "keywords": [
+    "ppt",
+    "presentation",
+    "deck",
+    "slides",
+    "image-generation",
+    "design",
+    "modern-flat",
+    "editorial"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PPT Editorial",
+    "shortDescription": "Reference-quality slide decks via image generation with a director/critic loop.",
+    "longDescription": "Produce reference-quality 16:9 decks where every text, diagram and icon is rendered inside the generated image. A four-stage multi-agent pipeline (design director -> parallel image generation -> design critic -> loop) enforces visual consistency. Includes two style profiles (editorial, modern flat), a 12-archetype modern-flat gallery with catalog, refined-scale and meaningful-decor defaults, and a hybrid report mode that embeds real screenshots (dashboards, tables, sheets) into matching frames.",
+    "developerName": "Dayoooun",
+    "category": "Productivity",
+    "capabilities": [
+      "Presentation",
+      "Image Generation",
+      "Design Critique",
+      "Report Assembly"
+    ],
+    "websiteURL": "https://github.com/Dayoooun/ppt-editorial",
+    "defaultPrompt": [
+      "Build a modern-flat result report deck from these materials.",
+      "Make an editorial-style pitch deck matching this reference image.",
+      "Create a 40-slide report that embeds my real dashboard screenshots."
+    ],
+    "brandColor": "#2B2B2B"
+  }
+}
