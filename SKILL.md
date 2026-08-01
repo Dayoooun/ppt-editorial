@@ -1,9 +1,13 @@
 ---
 name: ppt-editorial
-description: 레퍼런스 품질의 16:9 슬라이드 덱을 image generation(codex/GPT Image)으로 제작하는 범용 하네스. 모든 텍스트·도식·아이콘을 이미지 안에 직접 렌더. 디자인 디렉터→codex 병렬생성→디자인 크리틱 4단계 멀티 에이전트 파이프라인. 트리거 "에디토리얼 PPT", "이쁜 PPT", "GPTs 방식 슬라이드", 발표자료/결과보고/피치덱. 도메인 무관(컨설팅·핀테크·의료·교육·제품 등 무엇이든).
+description: 고품질 16:9 슬라이드 덱 제작 통합 하네스 (스킬명은 ppt-editorial이지만 에디토리얼 전용이 아님 — 프로파일 3종을 담는 그릇). 기본 = 씬 덱(3D 씬 일러스트·고딕·흰배경, 고객 납품/피칭용). 그 외 에디토리얼(페이퍼·명조), 모던플랫(클레이·브랜드색) 선택 가능. 디자인 디렉터→codex 병렬생성→디자인 크리틱 4단계 파이프라인. 트리거 "PPT", "슬라이드", "발표자료", "제안서", "덱", "결과보고", "피치덱". 도메인 무관.
 ---
 
-# 에디토리얼 슬라이드 하네스 (범용 · 2026-07-06 공고화)
+# 슬라이드 덱 하네스 (프로파일 3종 통합 · 2026-08-01 재정의)
+
+> ⚠️ **스킬명 `ppt-editorial`은 역사적 이름이다.** 초기에 에디토리얼 프로파일만 있어 그렇게 붙었고,
+> 지금은 **씬 덱 / 에디토리얼 / 모던플랫 3종을 담는 그릇**이다. 이름만 보고 프로파일을 고르지 말 것.
+> **고객 납품·피칭·제안은 § 0 씬 덱이 기본값**이다.
 
 레퍼런스(사용자가 원하는 룩을 보여주는 완성 덱 이미지)를 기준으로, **어떤 분야든** 잡지·갤러리 수준의 16:9 슬라이드를 codex(GPT Image)로 생성한다. 슬라이드의 모든 텍스트·아이콘·도식·사진을 이미지 안에 렌더하고, 로고·페이지번호 같은 고정 크롬만 PIL로 후합성한다.
 
@@ -25,6 +29,24 @@ description: 레퍼런스 품질의 16:9 슬라이드 덱을 image generation(co
 
 ## ★ 0.5 스타일 프로파일 (검증된 디자인 DNA — 골라서 앵커로 먹임)
 원하는 룩을 **레퍼런스 세트 + 스타일 블록 + 승인된 예시 슬라이드**로 고정한다. "이 DNA 항상 잘 나오게"의 메커니즘 = 아래 3종을 `-i`로 먹이는 것.
+
+### ★★★ 0. 씬 덱 (Scene Deck) — **기본값. 고객 납품·피칭·제안은 여기서 시작** (2026-08-01 확정)
+
+승인 기준본 = 고객 G 기술해자 덱 · 고객 B 결과보고. 사용법·그리드 규격·함정은
+**`scripts/scene-deck/README.md`** 에 전부 있다. 자산: `scripts/scene-deck/{scene_prompts,layout_engine}.py`,
+견본 `references/scene-deck/`(씬 5종 + 구도 샘플 4종).
+
+- **씬 일러스트 1장이 슬라이드를 지배한다.** 고급 3D 렌더(Apple keynote / fintech 급),
+  흰 배경, 팔레트 `#2B6EF2 / #6FA0FA / #DCE7FD / #F1F3F6 / #161D2B`.
+- **씬 안에 한글 라벨을 박는다.** 라벨 없는 씬은 정보량이 부족하다(빙산의 `원고/조판`, 벤의 `둘 다`).
+- **구도는 내용이 결정한다** — L(좌텍스트/우씬) · W(상단텍스트/하단와이드, 프로세스용) ·
+  S(좌씬/우텍스트, 리듬전환) · C(중앙대칭, 비교·교집합). **연속 3장 이상 같은 구도 금지.**
+- 크롬은 미니멀: 상단 파란 대시 + 영문 eyebrow / 우측 쪽번호, 하단 얇은 라인 + 회사명.
+  **파란 풀블리드 밴드 금지**(촌스러움, 실측 반려).
+- 헤드라인 **112px**(2560 캔버스)로 화면을 지배. 씬 생성은 **`--effort high` 필수**.
+
+> ⚠️ **아이콘 ≠ 씬.** 아이콘(80px 타일)을 키워 큰 영역에 쓰면 "커진 아이콘"으로 보여 싸구려가 된다.
+> 아이콘 나열로 슬라이드를 채우려는 시도는 2026-08-01 실측에서 전부 반려됐다.
 
 ### A. 에디토리얼 (paper editorial) — ★아키타입 갤러리 보관됨 (2026-07-21)
 - 페이퍼화이트 + **명조(serif)** + 미니멀 + 강조 1색 + 얇은 헤어라인 + (선택)수묵/잉크 모티프. 실물 사진 크게.
@@ -228,7 +250,7 @@ The ONLY numbers allowed on this slide are "7조 원", "4,000억 원", "40억 �
 > **고객 납품·심사 제출은 전부 이 스킬 하나로** 한다. `ppt-hybrid`의 유용한 조각(`assemble_pptx.py`,
 > `salvage_cache.py`)은 흡수했고, `ppt-image-first`·`slide-maker`는 deprecated.
 > 실제 납품에서 검증된 전체 파이프라인 구현체 = `scripts/safezone/pipeline_reference.py`
-> (고객 A 2라운드 15장 · 수정요청 3회 반영 완료본. fix_canvas→normalize→SLOTS 후합성→크롬→업스케일→PPTX/PDF).
+> (고객 A 2R 15장 · 수정요청 3회 반영 완료본. fix_canvas→normalize→SLOTS 후합성→크롬→업스케일→PPTX/PDF).
 
 ## 5. 재사용 자산
 - **파이프라인 프롬프트**: `prompts/director.md`(2단계) · `prompts/critic.md`(4단계) — `{...}` 채워 `Agent`로 스폰.
@@ -239,7 +261,7 @@ The ONLY numbers allowed on this slide are "7조 원", "4,000억 원", "40억 �
 - **★ 조립 전 검수 게이트**: `scripts/deck_qc.py <슬라이드폴더>` — ①종횡비 불일치 ②좌·우 여백 소실 ③SAFE ZONE 침범을 픽셀로 검출, FAIL이면 exit 1. `--body`는 크롬 합성 전 검사. **콘택트시트 육안 검수로는 못 잡는 결함 전용**이며, 패널 안 텍스트 잘림·한글 깨짐은 여전히 우측 확대 크롭으로 봐야 한다.
 - **★ 개정(수정 요청) 템플릿**: `scripts/safezone/revise_{spec,chrome,build}_template.py` — 납품 후 고객 수정 요청 처리용. `ORDER` 매핑 dict 하나로 순서 재배열·섹션 제목·카피·요약·쪽번호를 동시 해결하고, 소스 우선순위 체인(RAW_V5→V4→…→원본)으로 재생성분만 갈아끼운다. `fix_canvas()`(종횡비 교정) + 폭 제약 `normalize()` + 헤드라인 자동 축소 내장. 사용법은 `safezone/README.md` 6~7절.
 - **덱별 스크립트**(세션 스크래치에 매번): jobs 빌더 + assemble(정규화 1920×1080 → 크롬 → fitz로 PDF). PIL PDF는 JPEG 코덱 필요 → **fitz(PyMuPDF)로 PDF**.
-- ★★ **하이브리드 보고서 모드 (실증 스크린샷 임베드)** — `scripts/screenshot_frame.py`: 결과보고·성과보고처럼 **실제 화면(대시보드·매출표·시트·앱)을 넣어야 하는 대형 덱**은 codex 전용으로 안 됨(codex는 실제 화면 못 그림). **[C] codex 내러티브 + [S] 스크린샷 프레임** 혼합. `render(spec, out_dir, accent)` 또는 CLI `python screenshot_frame.py spec.json OUT --accent 503020`. spec=`[{num,tab,eyebrow,title,images:[png],caption,layout:"one"|"two"}]`. 프레임=eyebrow+제목+라운드카드+그림자+캡션 pill+은은한 데코, **강조색 파라미터**(고정 금지). [C]/[S] 모두 slide_NN.png로 내고 assemble이 1..N 순서 병합. 실전: 지역보증재단 결과보고 41장([S]19+[C]21+종합1, 2026-07-19). 40장급 PPTX는 JPEG(q84) 재압축으로 <30MB(전송 한도).
+- ★★ **하이브리드 보고서 모드 (실증 스크린샷 임베드)** — `scripts/screenshot_frame.py`: 결과보고·성과보고처럼 **실제 화면(대시보드·매출표·시트·앱)을 넣어야 하는 대형 덱**은 codex 전용으로 안 됨(codex는 실제 화면 못 그림). **[C] codex 내러티브 + [S] 스크린샷 프레임** 혼합. `render(spec, out_dir, accent)` 또는 CLI `python screenshot_frame.py spec.json OUT --accent 503020`. spec=`[{num,tab,eyebrow,title,images:[png],caption,layout:"one"|"two"}]`. 프레임=eyebrow+제목+라운드카드+그림자+캡션 pill+은은한 데코, **강조색 파라미터**(고정 금지). [C]/[S] 모두 slide_NN.png로 내고 assemble이 1..N 순서 병합. 실전: 고객 B 신보 결과보고 41장([S]19+[C]21+종합1, 2026-07-19). 40장급 PPTX는 JPEG(q84) 재압축으로 <30MB(전송 한도).
 
 ## 6. E2E 런북 (명령 순서)
 1. **입력**: 슬라이드별 내용(정확한 표시 텍스트, 수치는 원본 대조) + 레퍼런스 이미지 + 취향 확정.
