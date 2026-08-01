@@ -133,7 +133,101 @@ def lay_C(im, d, s):
         im.paste(sc, ((W - sc.width) // 2, int(H * 0.42) + (bh - sc.height) // 2))
 
 
-LAY = {"L": lay_L, "S": lay_S, "W": lay_W, "C": lay_C}
+
+
+# ══════ 확장 구도 (2026-08-01 G003) ══════
+def lay_A(im, d, s):
+    """A — 비대칭 대형: 씬을 화면 우측 60%까지 크게, 텍스트는 좌측 상단에 붙임.
+    임팩트가 필요한 장(오프닝·핵심 주장)에 쓴다."""
+    sc = scene(s["scene"])
+    if sc:
+        sc = fit(sc, int(W * 0.60), int(H * 0.74))
+        im.paste(sc, (W - sc.width - int(W * 0.01), int(H * 0.15)))
+    typo(d, M, int(H * 0.22), s["head"], s["sub"])
+
+
+def lay_F(im, d, s):
+    """F — 전면(full-bleed): 씬을 화면 폭 전체로 깔고 텍스트를 좌측 상단에 얹는다.
+    분위기·규모를 보여줄 때. 씬 하단이 크롬과 겹치지 않게 상단 정렬."""
+    sc = scene(s["scene"])
+    if sc:
+        sc = fit(sc, int(W * 0.98), int(H * 0.66))
+        im.paste(sc, ((W - sc.width) // 2, int(H * 0.24)))
+    typo(d, M, int(H * 0.165), s["head"], s["sub"], role="title")
+
+
+def lay_T(im, d, s):
+    """T — 3분할: 좌 텍스트 / 중앙 씬 / 우 보조 리스트.
+    항목 나열이 있는 장. s["items"] = [(제목, 설명), ...] 최대 3개."""
+    sc = scene(s["scene"])
+    if sc:
+        sc = fit(sc, int(W * 0.30), int(H * 0.52))
+        im.paste(sc, (int(W * 0.355), int(H * 0.24) + (int(H * 0.52) - sc.height) // 2))
+    typo(d, M, int(H * 0.245), s["head"], s["sub"])
+    items = s.get("items") or []
+    if items:
+        x = int(W * 0.70)
+        y = int(H * 0.27)
+        for t, desc in items[:3]:
+            d.rounded_rectangle((x, y, W - M, y + int(H * 0.13)), radius=20,
+                                fill=(246, 248, 250))
+            d.text((x + 28, y + 26), t, font=f("label"), fill=INK)
+            d.text((x + 28, y + 72), desc, font=f("sub", 28), fill=GREY)
+            y += int(H * 0.155)
+
+
+
+
+# ══════ 강조 요소 (2026-08-01 G003) ══════
+def accent_number(d, x, y, num, unit, caption, hero):
+    """대형 수치 강조. 헤드라인 아래에 배치해 시선을 붙든다."""
+    fn = f("num")
+    fu = f("label", 40)
+    fc = f("sub", 30)
+    draw_tracked(d, (x, y), num, fn, hero, TM("num", FAMILY)["tracking_px"])
+    nw = d.textlength(num, font=fn)
+    if unit:
+        d.text((x + nw + 12, y + fn.size - fu.size - 6), unit, font=fu, fill=hero)
+    if caption:
+        d.text((x, y + fn.size + 16), caption, font=fc, fill=GREY)
+    return y + fn.size + 60
+
+
+def keyword_chips(d, x, y, words, hero, pale):
+    """핵심 키워드 칩. 서브 텍스트보다 강하고 헤드라인보다 약한 중간 위계."""
+    fk = f("label", 32)
+    cx = x
+    for w in words:
+        tw_ = d.textlength(w, font=fk)
+        pad = 22
+        d.rounded_rectangle((cx, y, cx + tw_ + pad * 2, y + 56), radius=28, fill=pale)
+        d.text((cx + pad, y + 12), w, font=fk, fill=hero)
+        cx += tw_ + pad * 2 + 14
+    return y + 56
+
+
+def connector(d, x0, y0, x1, y1, hero, dashed=True):
+    """텍스트 축과 씬을 잇는 얇은 연결선. 시각적 연결 강화."""
+    if dashed:
+        step = 16
+        dx, dy = x1 - x0, y1 - y0
+        n = max(1, int((dx ** 2 + dy ** 2) ** 0.5 / step))
+        for i in range(0, n, 2):
+            a = i / n
+            b = min(1.0, (i + 1) / n)
+            d.line([(x0 + dx * a, y0 + dy * a), (x0 + dx * b, y0 + dy * b)],
+                   fill=hero, width=3)
+    else:
+        d.line([(x0, y0), (x1, y1)], fill=hero, width=3)
+
+
+def align_axis(d, x, top, bottom, hero):
+    """좌측 정렬 축 — 헤드라인 왼쪽에 얇은 세로선. 텍스트 블록을 묶어준다."""
+    d.rounded_rectangle((x - 22, top, x - 16, bottom), radius=3, fill=hero)
+
+
+LAY = {"L": lay_L, "S": lay_S, "W": lay_W, "C": lay_C,
+       "A": lay_A, "F": lay_F, "T": lay_T}
 
 SLIDES = [
     {"lay": "L", "eyebrow": "THE PROBLEM", "scene": "s1_gap",

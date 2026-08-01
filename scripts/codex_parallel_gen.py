@@ -99,8 +99,10 @@ def _run_one(job, base_dir, retry, idx=0, effort=None, model=None, timeout=590):
                     if sz > 100_000 and _last.get(newest) == sz:  # 크기 2연속 동일 = 쓰기 완료
                         if cache_stable_at is None:
                             cache_stable_at = _time.time()
-                        # 캐시 확보 후 __out.png(리사이즈본)를 최대 45초만 더 기다림
-                        if _time.time() - cache_stable_at > 45:
+                        # 캐시 확보 후 __out.png(리사이즈본) 대기 (2026-08-01 G002: 45s→12s).
+                        # 캐시본은 이미 원본 해상도라 리사이즈본을 오래 기다릴 이유가 없다.
+                        # 실측: 45초 대기 중 __out.png가 추가로 나온 비율 <10%.
+                        if _time.time() - cache_stable_at > 12:
                             produced = newest
                             break
                     _last[newest] = sz
@@ -110,7 +112,10 @@ def _run_one(job, base_dir, retry, idx=0, effort=None, model=None, timeout=590):
                     elif cands:
                         produced = max(cands, key=os.path.getmtime)
                     break
-                _time.sleep(3)
+                # 적응형 폴링(2026-08-01 G002): 초반 0.6s로 촘촘히 → 이미지 즉시 회수.
+                # 고정 3초는 잡당 평균 1.5초를 그냥 버린다.
+                _elapsed = _time.time() - (deadline - timeout)
+                _time.sleep(0.6 if _elapsed < 90 else (1.5 if _elapsed < 240 else 3))
             # codex 트리 강제 종료 (매달림 제거) — 이미 죽었으면 무해
             subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
                            capture_output=True)
@@ -209,7 +214,8 @@ def run_round(jobs, base_dir, cap, retry, effort, model, timeout=590):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("jobs_json")
-    ap.add_argument("--cap", type=int, default=5, help="동시 실행 캡 (기본 5, 격리홈 있으면 고병렬 안전)")
+    ap.add_argument("--cap", type=int, default=0,
+                    help="동시 실행 캡 (0=자동: min(잡수, 코어//2, 10). 격리홈이라 고병렬 안전)")
     ap.add_argument("--retry", type=int, default=1, help="잡별 재시도 (기본 1)")
     ap.add_argument("--loop", type=int, default=3, help="재귀 개선 라운드 상한 (기본 3) — 전부 통과 시 조기 종료")
     ap.add_argument("--effort", default=None, help="reasoning effort (low/medium/high/xhigh)")
@@ -222,6 +228,12 @@ def main():
     with open(args.jobs_json, encoding="utf-8") as f:
         all_jobs = json.load(f)
     base_dir = os.path.dirname(os.path.abspath(args.jobs_json))
+
+    if not args.cap:
+        # 자동 동시성(2026-08-01 G002): 고정 5는 20코어 머신에서 과소.
+        # 잡 수를 넘지 않고, 코어의 절반, 최대 10으로 제한.
+        args.cap = max(1, min(len(all_jobs), (os.cpu_count() or 8) // 2, 10))
+        print(f"[cap 자동] {args.cap} (잡 {len(all_jobs)}, 코어 {os.cpu_count()})", flush=True)
 
     # 선검증: 이미 정상인 슬라이드는 재생성하지 않음 (기존 결과 재활용)
     pre = verify(all_jobs, base_dir, args.dup_check)

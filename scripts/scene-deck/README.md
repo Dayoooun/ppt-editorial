@@ -140,3 +140,77 @@ draw_tracked(d, (x, y), "헤드라인", f, INK, m["tracking_px"])
 
 **원칙**: 글자가 클수록 자간을 조이고 행간을 붙인다. 작을수록 벌린다.
 영문 eyebrow만 자간을 크게 벌려(+0.08em) 라벨답게 만든다.
+
+
+## 8. 도메인 프리셋 — `presets.py`
+
+```python
+from presets import preset, style_block
+style_block("식음료")     # 그 도메인용 STYLE 블록 전체를 반환
+```
+
+9종: `it` `food` `manufacturing` `education` `welfare` `culture` `public` `medical` `retail`
+별칭 해석 — "협동조합"→welfare, "AI 스타트업"→it, "공연 기획"→culture.
+각 프리셋은 **팔레트 + 폰트조합 + 씬모티프 + 톤**을 함께 묶는다.
+
+## 9. 구도 7종
+
+| 코드 | 구도 | 언제 |
+|---|---|---|
+| L | 좌 텍스트 / 우 씬 | 개념 설명 |
+| S | 좌 씬 / 우 텍스트 | 리듬 전환 |
+| W | 상단 텍스트 / 하단 와이드 | **프로세스·순서** |
+| C | 중앙 대칭 | **비교·교집합** |
+| **A** | 비대칭 대형(씬 60%) | 임팩트가 필요한 장 |
+| **F** | 전면(full-bleed) | 분위기·규모 |
+| **T** | 3분할(텍스트/씬/리스트) | 항목 나열 |
+
+연속 3장 이상 같은 구도 금지.
+
+## 10. 수정 인터페이스 — `revise.py`
+
+```python
+from revise import Deck, apply_command
+d = Deck.load("spec.json")
+apply_command(d, "3번 헤드라인을 새 제목 로")   # 자연어
+d.lay(2, "W"); d.scene(4, "저울 비교")          # API
+print(d.plan())   # 무엇이 재생성되는지 미리보기
+```
+
+**TEXT 수정**(헤드라인·서브·구도·순서·색·폰트)은 재생성 없이 조립만 — 수초.
+**SCENE 수정**(씬 내용·라벨·도메인)만 해당 장을 재생성 — 철칙 E를 코드로 강제.
+
+⚠️ 슬라이드 번호는 **고정 ID(`_sid`)** 기준이다. `move()`로 순서를 바꿔도
+"3번"은 계속 같은 슬라이드를 가리킨다. (순서 기준이면 move 뒤 명령이 엉뚱한 장에 적용됨 — 실측 버그)
+
+## 11. 사용자 실사진 — `photos.py`
+
+```python
+from photos import plan, prep, prompt_block
+ready = prep(paths, "photos_ready")        # 리사이즈 + (옵션)얼굴 블러
+pl = plan(ready)                            # 성격 판정 + 배치 결정
+prompt = style_block(dom) + body + prompt_block(pl, labels)
+job = {"refs": ready, "prompt": prompt}    # ★ refs로 codex에 전달
+```
+
+**철칙 D**: 코드 후합성 금지. `refs`로 넘겨 codex가 씬 안에서 함께 그리게 한다.
+그래야 사진이 3D 프레임에 담기고 조명·그림자·팔레트가 씬과 일치한다.
+
+| 장수 | 모드 | 배치 |
+|---|---|---|
+| 1 | hero | L/A 구도, 씬 중심 |
+| 2 | compare | S/C 구도, 좌우 대칭 |
+| 3 | sequence | W 구도, 가로 흐름 + 화살표 |
+| 4 | grid | F/T 구도, 2×2 격자 |
+
+얼굴이 검출되면 개인정보 지시가 자동 삽입된다.
+
+## 12. 성능 (2026-08-01 실측)
+
+| 항목 | 값 |
+|---|---|
+| 씬 6장 | **5.4분** (개선 전 15~25분) |
+| 개별 씬 | 2.8~5.4분 |
+| effort | high 유지 — 품질 타협 없음 |
+
+개선 3건: 적응형 폴링(0.6/1.5/3s) · 캐시대기 45s→12s · 동시성 자동(`--cap 0`)
