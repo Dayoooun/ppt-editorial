@@ -32,21 +32,64 @@ description: 고품질 16:9 슬라이드 덱 제작 통합 하네스 (스킬명�
 
 ### ★★★ 0. 씬 덱 (Scene Deck) — **기본값. 고객 납품·피칭·제안은 여기서 시작** (2026-08-01 확정)
 
-승인 기준본 = 고객 G 기술해자 덱 · 고객 B 결과보고. 사용법·그리드 규격·함정은
-**`scripts/scene-deck/README.md`** 에 전부 있다. 자산: `scripts/scene-deck/{scene_prompts,layout_engine}.py`,
-견본 `references/scene-deck/`(씬 5종 + 구도 샘플 4종).
+승인 기준본 = 고객 G 기술해자 덱 · 고객 B 결과보고.
+**사용법·규격·함정은 `scripts/scene-deck/README.md`(19절)에 전부 있다. 반드시 먼저 읽어라.**
 
-- **씬 일러스트 1장이 슬라이드를 지배한다.** 고급 3D 렌더(Apple keynote / fintech 급),
-  흰 배경, 팔레트 `#2B6EF2 / #6FA0FA / #DCE7FD / #F1F3F6 / #161D2B`.
-- **씬 안에 한글 라벨을 박는다.** 라벨 없는 씬은 정보량이 부족하다(빙산의 `원고/조판`, 벤의 `둘 다`).
-- **구도는 내용이 결정한다** — L(좌텍스트/우씬) · W(상단텍스트/하단와이드, 프로세스용) ·
-  S(좌씬/우텍스트, 리듬전환) · C(중앙대칭, 비교·교집합). **연속 3장 이상 같은 구도 금지.**
+#### ★ 진입점은 `Deck` 클래스다 — build.py를 새로 쓰지 마라
+
+```python
+import sys, os
+sys.path.insert(0, os.path.expanduser(r"~\.claude\skills\ppt-editorial\scripts\scene-deck"))
+from deck import Deck
+
+d = Deck(domain="제조", foot="OO정밀", title="스마트공장_제안")
+d.cover("SMART FACTORY PROPOSAL", ["사람이 못 보는 불량을", "기계가 잡습니다"],
+        ["설비 데이터 기반 실시간 품질 검사"], issuer="(주)OO정밀",
+        meta=["제조혁신 컨설팅 · 2026"], scene="a precision inspection module ...")
+d.agenda(["현황 진단", "불량 발생 구조", "검사 자동화 설계", "도입 로드맵"], scene="...")
+d.slide("L", "THE PROBLEM", ["눈으로 검사하면", "반드시 놓칩니다"], ["..."],
+        scene="...", labels=["육안 검사"])
+d.slide("C", "RESULT", ["불량 유출이 줄어듭니다"], ["..."], scene="...",
+        num=["0.3", "%", "목표 유출률"], chips=["24시간 검사", "로트 이력 추적"])
+d.photos(["a.jpg", "b.jpg"], "ON SITE", ["현장에서 함께합니다"], ["..."])
+d.closing(["함께 만드는 무결점 라인"], issuer="(주)OO정밀", scene="...")
+
+d.generate()                      # 씬 생성 (있으면 생략 — 철칙 E)
+d.build(pdf=True, pptx=True)      # 조립 + PDF/PPTX
+```
+
+`domain` 한 줄로 팔레트·폰트·씬모티프·톤이 잡히고, 씬 비율·SAFE ZONE·PIL금지 지시·
+재생성 방지가 자동이다. `build()` 시 `spec.json`이 저장돼 수정에 재사용된다.
+
+#### 자산 (`scripts/scene-deck/`)
+
+| 파일 | 역할 |
+|---|---|
+| **`deck.py`** | 진입점. `cover/agenda/slide/photos/closing → generate → build` |
+| `presets.py` | 도메인 9종 — it/food/manufacturing/education/welfare/culture/public/medical/retail |
+| `layout_engine.py` | 구도 10종 + 강조요소 + 오버플로우 방어 |
+| `fonts.py` | 폰트 풀 11종 + 황금비 스케일 |
+| `revise.py` | 수정 인터페이스 (자연어 + API, 재생성 자동 판별) |
+| `photos.py` | 실사진 4모드 (hero/compare/sequence/grid) |
+
+#### 핵심 규칙
+
+- **씬 일러스트 1장이 슬라이드를 지배한다.** 고급 3D 렌더(Apple keynote 급), 흰 배경.
+  팔레트·모티프·톤은 `presets.py`가 도메인별로 준다.
+- **씬 안에 한글 라벨을 박는다**(`labels=[...]`). 라벨 없는 씬은 정보량이 부족하다.
+- **구도 10종** — 본문 `L`(좌텍/우씬) `S`(반전) `W`(프로세스) `C`(비교·교집합)
+  `A`(비대칭대형) `F`(전면) `T`(3분할) / 실무 `COVER` `AGENDA` `CLOSING`.
+  **연속 3장 이상 같은 구도 금지.**
 - 크롬은 미니멀: 상단 파란 대시 + 영문 eyebrow / 우측 쪽번호, 하단 얇은 라인 + 회사명.
-  **파란 풀블리드 밴드 금지**(촌스러움, 실측 반려).
-- 헤드라인 **112px**(2560 캔버스)로 화면을 지배. 씬 생성은 **`--effort high` 필수**.
+  **파란 풀블리드 밴드 금지**(촌스러움, 실측 반려). 표지는 크롬 없음.
+- 헤드라인 **115px**(2560 캔버스). 씬 생성은 **`--effort high` 필수**.
+- 필수 게이트: `python scripts/deck_qc.py <out폴더> --cover 01`
 
 > ⚠️ **아이콘 ≠ 씬.** 아이콘(80px 타일)을 키워 큰 영역에 쓰면 "커진 아이콘"으로 보여 싸구려가 된다.
 > 아이콘 나열로 슬라이드를 채우려는 시도는 2026-08-01 실측에서 전부 반려됐다.
+
+> ⚠️ **수정은 재생성이 아니다.** `Deck.load(spec).revise()` + `apply_command()`로 고친다.
+> 텍스트·구도·순서·색·폰트는 조립만 하고(수초), 씬 내용을 바꿀 때만 그 장을 재생성한다.
 
 ### A. 에디토리얼 (paper editorial) — ★아키타입 갤러리 보관됨 (2026-07-21)
 - 페이퍼화이트 + **명조(serif)** + 미니멀 + 강조 1색 + 얇은 헤어라인 + (선택)수묵/잉크 모티프. 실물 사진 크게.
