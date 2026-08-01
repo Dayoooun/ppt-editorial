@@ -248,3 +248,48 @@ job = {"refs": ready, "prompt": prompt}    # ★ refs로 codex에 전달
 ⚠️ `lay_W`는 씬 영역을 **고정하지 않는다.** 텍스트+강조가 실제로 차지한 높이 아래
 `BODY_BOT`까지 남은 공간을 전부 쓴다. 고정값(`H*0.40`)이면 텍스트가 짧을 때
 상단이 비고 씬이 하단으로 쏠린다(실측 수정).
+
+
+## 14. ★ 단일 진입점 — `deck.py` (여기서 시작하라)
+
+덱 하나를 만들 때 `build.py`를 새로 쓰지 마라. `Deck` 클래스가 전부 처리한다.
+
+```python
+import sys, os
+sys.path.insert(0, os.path.expanduser(r"~\.claude\skills\ppt-editorial\scripts\scene-deck"))
+from deck import Deck
+
+d = Deck(domain="교육", foot="OO아카데미", title="교육사업_소개")
+
+d.slide("L", "THE PROBLEM", ["배우고 나면", "잊어버립니다"],
+        ["일회성 특강은 현장에 남지 않는다"],
+        scene="a lone lecture podium on an isolated platform, knowledge particles drifting away",
+        labels=["1회성 특강"])
+
+d.slide("W", "OUR PROGRAM", ["4단계로 정착시킵니다"], ["진단 · 학습 · 실습 · 코칭"],
+        scene="four rounded pedestals in a row carrying a clipboard, a book, a workbench, a speech bubble",
+        labels=["진단", "학습", "실습", "코칭"])
+
+d.slide("L", "TRACK RECORD", ["숫자로", "증명합니다"], ["수료 후 현장 적용률"],
+        scene="a tall stack of layered plates with a graduation cap at the summit",
+        num=["1,240", "명", "누적 수료"], chips=["현장 적용 82%", "재수강 3회+"])
+
+d.photos(["a.jpg","b.jpg","c.jpg"], "ON SITE", ["현장에서 함께합니다"], ["3회차 밀착"])
+
+d.summary()      # 구성 미리보기
+d.generate()     # 씬 생성 (이미 있으면 생략 — 철칙 E)
+d.build()        # 조립 + PDF
+```
+
+`Deck`이 자동으로 처리하는 것:
+
+| 항목 | 동작 |
+|---|---|
+| 팔레트·폰트 | `domain`에서 프리셋 적용 |
+| 씬 비율 | W/F는 `16:9 wide`, 나머지 `4:3 landscape` |
+| SAFE ZONE·PIL금지 지시 | 모든 프롬프트에 자동 삽입 |
+| 사진 | `photos()`가 성격 판정 → 구도 자동 선택 → refs 전달 |
+| 재생성 | 이미 있는 씬은 건너뜀 |
+| 저장 | `build()` 시 `spec.json` 기록 → `revise.py`로 수정 가능 |
+
+**수정은 재생성하지 말고** `Deck.load("spec.json")` 후 `revise.py`를 쓴다.
