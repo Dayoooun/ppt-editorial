@@ -132,6 +132,10 @@ def _run_one(job, base_dir, retry, idx=0, effort=None, model=None, timeout=590):
                 size_kb = os.path.getsize(out) // 1024
                 # 30KB 미만만 PIL폴백/한글깨짐 의심 (표지·클로징 등 여백 많은 정상 슬라이드는 50~90KB로 정상)
                 status = "WARN(PIL폴백의심<30KB)" if size_kb < 30 else "OK"
+                # [2026-07-29] WARN을 내고도 그대로 반환하면 재시도 기회를 버린다.
+                # 남은 시도가 있으면 다시 뽑는다 — 어차피 verify가 30KB 미만을 불합격 처리한다.
+                if size_kb < 30 and attempt < retry:
+                    continue
                 return {"label": label, "status": status, "out": out, "size_kb": size_kb, "attempt": attempt + 1}
         except subprocess.TimeoutExpired:
             if attempt == retry:

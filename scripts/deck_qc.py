@@ -1,0 +1,133 @@
+# -*- coding: utf-8 -*-
+"""덱 조립 전 자동 검수 게이트 (2026-07-27 신설)
+
+콘택트시트 육안 검수로는 못 잡는 결함을 픽셀로 검출한다.
+실측 사고 3건에서 도출:
+  ① 종횡비 불일치 — codex가 1장만 2:1로 뱉어 PPTX에서 찌그러짐
+  ② 우/좌 여백 소실 — 콘텐츠가 슬라이드 끝에 붙어 답답하고 텍스트가 잘림
+  ③ SAFE ZONE 침범 — 본문이 상단 제목·하단 밴드와 겹침
+
+사용:
+  python deck_qc.py <슬라이드폴더> [--safe-top 0.163] [--safe-bot 0.845]
+  python deck_qc.py <폴더> --body        # 크롬 합성 전(본문만) 검사
+  python deck_qc.py <폴더> --cover 01    # 표지 sid 지정(풀블리드라 여백 검사 제외)
+
+종료코드 0=통과 / 1=FAIL 존재
+"""
+import os, sys, glob, argparse
+import numpy as np
+from PIL import Image
+
+RIGHT_LIMIT = 0.965      # 이보다 오른쪽까지 콘텐츠가 있으면 여백 부족
+LEFT_LIMIT  = 0.035      # 이보다 왼쪽까지 있으면 여백 부족
+RATIO_TOL   = 0.02       # 종횡비 허용 오차
+
+
+def bounds(im, y0=0.0, y1=1.0):
+    """지정 세로 구간에서 콘텐츠 bbox 비율 반환 (l, r, t, b)"""
+    a = np.array(im.convert("L")).astype(int)
+    H, W = a.shape
+    band = a[int(H * y0):int(H * y1)]
+    if band.size == 0:
+        return None
+    bg = int(np.bincount(band.ravel()).argmax())
+    c = np.abs(band - bg) > 14
+    cols = np.nonzero(c.sum(axis=0) > band.shape[0] * 0.015)[0]
+    rows = np.nonzero(c.sum(axis=1) > W * 0.015)[0]
+    if len(cols) == 0 or len(rows) == 0:
+        return None
+    return (cols.min() / W, cols.max() / W,
+            (rows.min() + int(H * y0)) / H, (rows.max() + int(H * y0)) / H)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("folder")
+    ap.add_argument("--safe-top", type=float, default=0.163)
+    ap.add_argument("--safe-bot", type=float, default=0.845)
+    ap.add_argument("--cover", default="01", help="표지 sid(여백 검사 제외), 없으면 none")
+    ap.add_argument("--body", action="store_true", help="크롬 전 본문 검사(SAFE ZONE 침범 체크)")
+    a = ap.parse_args()
+
+    files = sorted(glob.glob(os.path.join(a.folder, "slide_*.png")))
+    if not files:
+        print("슬라이드 없음:", a.folder); sys.exit(1)
+
+    sizes = {}
+    fails, warns = [], []
+
+    print("=" * 66)
+    print("덱 검수 :", a.folder, "(%d장)" % len(files))
+    print("=" * 66)
+
+    for p in files:
+        sid = os.path.splitext(os.path.basename(p))[0].split("_")[-1]
+        im = Image.open(p).convert("RGB")
+        W, H = im.size
+        sizes.setdefault((W, H), []).append(sid)
+
+        if sid == a.cover:
+            print(" %s  표지 — 여백 검사 제외 (%dx%d)" % (sid, W, H))
+            continue
+
+        b = bounds(im, a.safe_top - 0.005, a.safe_bot + 0.005)
+        if b is None:
+            warns.append((sid, "콘텐츠 미검출"))
+            print(" %s  [WARN] 콘텐츠 미검출" % sid); continue
+        l, r, t, bt = b
+        msgs = []
+        if r > RIGHT_LIMIT:
+            fails.append((sid, "우측 여백 부족 %.3f" % r)); msgs.append("우 %.3f ✗" % r)
+        else:
+            msgs.append("우 %.3f" % r)
+        if l < LEFT_LIMIT:
+            fails.append((sid, "좌측 여백 부족 %.3f" % l)); msgs.append("좌 %.3f ✗" % l)
+        else:
+            msgs.append("좌 %.3f" % l)
+
+        if a.body:                       # 크롬 전이면 상하단 침범 검사
+            fb = bounds(im)
+            if fb:
+                _, _, ft, fbm = fb
+                if ft < a.safe_top - 0.01:
+                    warns.append((sid, "상단 SAFE ZONE 침범 %.3f" % ft)); msgs.append("상 %.3f !" % ft)
+                if fbm > a.safe_bot + 0.01:
+                    warns.append((sid, "하단 SAFE ZONE 침범 %.3f" % fbm)); msgs.append("하 %.3f !" % fbm)
+
+        print(" %s  %s" % (sid, "  ".join(msgs)))
+
+    # ── 종횡비 통일 검사
+    print("-" * 66)
+    if len(sizes) == 1:
+        W, H = next(iter(sizes))
+        print("크기 통일 : %dx%d (비율 %.3f)" % (W, H, W / H))
+    else:
+        base = max(sizes, key=lambda k: len(sizes[k]))
+        br = base[0] / base[1]
+        for sz, ids in sizes.items():
+            if abs(sz[0] / sz[1] - br) > RATIO_TOL:
+                for i in ids:
+                    fails.append((i, "종횡비 불일치 %dx%d (기준 %dx%d)" % (sz[0], sz[1], base[0], base[1])))
+        print("크기 종류 %d개 :" % len(sizes),
+              ", ".join("%dx%d(%s)" % (s[0], s[1], ",".join(v)) for s, v in sizes.items()))
+
+    print("-" * 66)
+    if fails:
+        print("FAIL %d건" % len(fails))
+        for sid, m in fails:
+            print("  - %s : %s" % (sid, m))
+    if warns:
+        print("WARN %d건" % len(warns))
+        for sid, m in warns:
+            print("  - %s : %s" % (sid, m))
+    if not fails and not warns:
+        print("통과 — 조립 진행 가능")
+    print("=" * 66)
+
+    print("\n※ 이 검수로도 못 잡는 것: 한글 깨짐·오타·패널 안 텍스트 잘림.")
+    print("  → 우측 1/3을 2배 확대 크롭해 육안 확인할 것 (콘택트시트로는 안 보임).")
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == "__main__":
+    main()
