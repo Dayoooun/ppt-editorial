@@ -55,8 +55,16 @@ def main():
     ap.add_argument("--safe-top", type=float, default=0.163)
     ap.add_argument("--safe-bot", type=float, default=0.845)
     ap.add_argument("--cover", default="01", help="표지 sid(여백 검사 제외), 없으면 none")
-    ap.add_argument("--body", action="store_true", help="크롬 전 본문 검사(SAFE ZONE 침범 체크)")
+    ap.add_argument("--body", action="store_true",
+                    help="★크롬 합성 전 본문 폴더에만 쓴다. 완성 슬라이드에 쓰면 "
+                         "크롬(eyebrow·하단선)을 침범으로 오인해 전건 오탐이 난다")
     a = ap.parse_args()
+
+    if a.body:
+        print("※ --body 는 크롬 합성 '전' 본문 검사용이다.")
+        print("  완성 슬라이드(크롬 포함)에 쓰면 상단 eyebrow·하단 구분선을")
+        print("  SAFE ZONE 침범으로 오인해 전건 WARN이 난다.")
+        print("  완성본은 --body 없이 실행하라.\n")
 
     files = sorted(glob.glob(os.path.join(a.folder, "slide_*.png")))
     if not files:
