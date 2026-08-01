@@ -86,6 +86,7 @@ class Deck:
             if v:
                 s[k] = v
         self.slides.append(s)
+        self.save()          # 매 추가마다 저장 — generate 후 load 가능하게(실측 버그)
         return self
 
     def photos(self, paths, eyebrow, head, sub, lay=None, labels=None, **kw):
@@ -99,6 +100,8 @@ class Deck:
                    labels=labels, **kw)
         sid = self.slides[-1]["scene"]
         self._photo_refs[sid] = (ready, pl, labels)
+        self.slides[-1]["_photo"] = [os.path.relpath(x, self.dir) for x in ready]
+        self.save()
         return self
 
     # ══════ 씬 생성 ══════
@@ -143,6 +146,7 @@ class Deck:
         subprocess.run([sys.executable, GEN, "jobs.json", "--retry", "1",
                         "--loop", str(loop), "--timeout", str(timeout),
                         "--effort", effort], cwd=self.dir)
+        self.save()
         return self
 
     # ══════ 조립 ══════
