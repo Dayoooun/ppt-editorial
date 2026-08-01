@@ -73,13 +73,62 @@ def chrome(im, d, eyebrow, num, total):
     d.text((W - M - d.textlength(pg, font=ff), by + 30), pg, font=ff, fill=GREY)
 
 
+def _wrap(d, text, fnt, maxw, trk=0.0):
+    """어절 단위 줄바꿈. 한 어절이 폭을 넘으면 그 어절만 글자 단위로 자른다."""
+    def w(t):
+        return d.textlength(t, font=fnt) + trk * max(0, len(t) - 1)
+    if w(text) <= maxw:
+        return [text]
+    out, cur = [], ""
+    for word in text.split(" "):
+        cand = (cur + " " + word).strip()
+        if w(cand) <= maxw or not cur:
+            cur = cand
+        else:
+            out.append(cur); cur = word
+        while w(cur) > maxw and len(cur) > 1:      # 초장문 어절
+            cut = len(cur)
+            while cut > 1 and w(cur[:cut]) > maxw:
+                cut -= 1
+            out.append(cur[:cut]); cur = cur[cut:]
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _fit_role(d, lines, role, maxw, min_ratio=0.62):
+    """폰트를 줄여 maxw 안에 들어오게 한다. 반환=(폰트, metrics, 줄목록)"""
+    base = TM(role, FAMILY)
+    size = base["size"]
+    floor = max(28, int(size * min_ratio))
+    while size >= floor:
+        fnt = f(role, size=size)
+        trk = base["tracking_px"] * size / base["size"]
+        wrapped = []
+        for ln in lines:
+            wrapped.extend(_wrap(d, ln, fnt, maxw, trk))
+        # 줄 수가 3을 넘으면 더 줄인다 (헤드라인은 2줄이 기본)
+        if len(wrapped) <= 3:
+            lead = int(round(size * (base["leading"] / base["size"])))
+            return fnt, {"leading": lead, "tracking_px": trk}, wrapped
+        size -= 6
+    fnt = f(role, size=floor)
+    trk = base["tracking_px"] * floor / base["size"]
+    wrapped = []
+    for ln in lines:
+        wrapped.extend(_wrap(d, ln, fnt, maxw, trk))
+    lead = int(round(floor * (base["leading"] / base["size"])))
+    return fnt, {"leading": lead, "tracking_px": trk}, wrapped
+
+
 def typo(d, x, y, head, sub, role="headline", align="left", center=False, maxw=None):
     """헤드라인 + 서브 렌더. 크기·행간·자간은 fonts.py 황금비 스케일을 따른다."""
     if center:
         align = "center"
-    fh = f(role)
-    mh = TM(role, FAMILY)
-    for ln in head:
+    # 사용 가능한 폭: 좌측 정렬이면 x부터 우측 여백까지, 중앙이면 캔버스 폭의 84%
+    avail = maxw or (int(W * 0.84) if align == "center" else (W - M - x))
+    fh, mh, hlines = _fit_role(d, head, role, avail)
+    for ln in hlines:
         w = d.textlength(ln, font=fh) + mh["tracking_px"] * max(0, len(ln) - 1)
         tx = x if align == "left" else x - w / 2
         draw_tracked(d, (tx, y), ln, fh, INK, mh["tracking_px"])
@@ -87,7 +136,10 @@ def typo(d, x, y, head, sub, role="headline", align="left", center=False, maxw=N
     y += 34
     fs = f("sub")
     ms = TM("sub", FAMILY)
+    slines = []
     for ln in sub:
+        slines.extend(_wrap(d, ln, fs, avail, ms["tracking_px"]))
+    for ln in slines:
         w = d.textlength(ln, font=fs) + ms["tracking_px"] * max(0, len(ln) - 1)
         tx = x if align == "left" else x - w / 2
         draw_tracked(d, (tx, y), ln, fs, GREY, ms["tracking_px"])
@@ -132,7 +184,7 @@ def lay_L(im, d, s):
         sc = sc.resize((int(sc.width * r), int(sc.height * r)), Image.LANCZOS)
         im.paste(sc, (W - M - int(W * 0.02) - sc.width,
                       int(H * 0.20) + (bh - sc.height) // 2))
-    _y = typo(d, M, int(H * 0.245), s["head"], s["sub"])
+    _y = typo(d, M, int(H * 0.245), s["head"], s["sub"], maxw=int(W * 0.50))
     _emphasis(im, d, s, M, _y + 18)
 
 
@@ -144,7 +196,7 @@ def lay_S(im, d, s):
         r = min(bw / sc.width, bh / sc.height)
         sc = sc.resize((int(sc.width * r), int(sc.height * r)), Image.LANCZOS)
         im.paste(sc, (M + int(W * 0.02), int(H * 0.20) + (bh - sc.height) // 2))
-    _y = typo(d, int(W * 0.52), int(H * 0.245), s["head"], s["sub"])
+    _y = typo(d, int(W * 0.52), int(H * 0.245), s["head"], s["sub"], maxw=int(W * 0.42))
     _emphasis(im, d, s, int(W * 0.52), _y + 18)
 
 
@@ -164,24 +216,17 @@ def lay_W(im, d, s):
 
 
 def lay_C(im, d, s):
-    """중앙 정렬 — 비교/교집합 등 대칭 구도용"""
-    fh = f("title")
-    y = int(H * 0.155)
-    for ln in s["head"]:
-        d.text(((W - d.textlength(ln, font=fh)) / 2, y), ln, font=fh, fill=INK)
-        y += TM("title", FAMILY)["leading"]
-    y += 20
-    fs = f("sub", 36)
-    for ln in s["sub"]:
-        d.text(((W - d.textlength(ln, font=fs)) / 2, y), ln, font=fs, fill=GREY)
-        y += TM("sub", FAMILY)["leading"]
+    """중앙 정렬 — 비교/교집합 등 대칭 구도용.
+    typo()를 그대로 쓴다(자체 렌더하면 줄바꿈·폰트축소 보호가 빠져 오버플로우 — 실측)."""
+    y = typo(d, W // 2, int(H * 0.155), s["head"], s["sub"],
+             role="title", center=True, maxw=int(W * 0.78))
+    y = _emphasis(im, d, s, W // 2, y + 12)
     sc = scene(s["scene"])
     if sc:
-        bh = int(H * 0.44)
-        bw = int(W * 0.52)
-        r = min(bw / sc.width, bh / sc.height)
-        sc = sc.resize((int(sc.width * r), int(sc.height * r)), Image.LANCZOS)
-        im.paste(sc, ((W - sc.width) // 2, int(H * 0.42) + (bh - sc.height) // 2))
+        top = y + 24
+        bh = max(int(H * 0.30), BODY_BOT - top)
+        sc = fit(sc, int(W * 0.56), bh)
+        im.paste(sc, ((W - sc.width) // 2, top + (bh - sc.height) // 2))
 
 
 
@@ -194,7 +239,7 @@ def lay_A(im, d, s):
     if sc:
         sc = fit(sc, int(W * 0.60), int(H * 0.74))
         im.paste(sc, (W - sc.width - int(W * 0.01), int(H * 0.15)))
-    _y = typo(d, M, int(H * 0.22), s["head"], s["sub"])
+    _y = typo(d, M, int(H * 0.22), s["head"], s["sub"], maxw=int(W * 0.36))
     _emphasis(im, d, s, M, _y + 18)
 
 
@@ -215,7 +260,7 @@ def lay_T(im, d, s):
     if sc:
         sc = fit(sc, int(W * 0.30), int(H * 0.52))
         im.paste(sc, (int(W * 0.355), int(H * 0.24) + (int(H * 0.52) - sc.height) // 2))
-    y = typo(d, M, int(H * 0.245), s["head"], s["sub"])
+    y = typo(d, M, int(H * 0.245), s["head"], s["sub"], maxw=int(W * 0.30))
     _emphasis(im, d, s, M, y + 18)
     items = s.get("items") or []
     if items:
