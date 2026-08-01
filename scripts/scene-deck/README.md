@@ -21,7 +21,8 @@
 
 ## 2. 씬 프롬프트 규격
 
-`scene_prompts.py`의 `BASE_STYLE`을 그대로 쓴다. 핵심 3요소:
+`presets.style_block(domain)`이 도메인별로 만들어 준다. **직접 쓰지 마라.**
+`deck.py`를 쓰면 이 블록이 자동으로 프롬프트에 들어간다. 구성 요소:
 
 ```
 RENDER STYLE — High-end 3D render, soft studio lighting, matte surfaces,
@@ -60,19 +61,24 @@ TEXT LABELS rendered in the image (bold Korean gothic, ink colour, small):
 
 ## 4. 실행 순서
 
-```bash
-# 1) 씬 스펙 작성 (슬라이드별 구도 + 씬 내용 + 라벨)
-#    scene_prompts.py 의 SCENES 를 프로젝트에 맞게 수정
-python scene_prompts.py                      # → jobs_v3.json
+**`deck.py`를 쓴다.** 아래는 그 내부 동작이며, 직접 호출할 일은 없다.
 
-# 2) 씬 생성 (--effort high 필수, 품질 차이가 크다)
-python ../codex_parallel_gen.py jobs_v3.json --cap 5 --retry 1 --loop 2 \
-       --timeout 900 --effort high
-
-# 3) 조립 (구도별 레이아웃 + 미니멀 크롬 + PDF)
-#    layout_engine.py 의 SLIDES 를 수정 후
-python layout_engine.py                      # → v3_out/*.png + PDF
+```python
+from deck import Deck
+d = Deck(domain="식음료", foot="OO식품", title="사업소개")
+d.cover(...); d.agenda([...]); d.slide("L", ...); d.closing(...)
+d.generate()                   # 씬 생성 (없는 것만)
+d.build(pdf=True, pptx=True)   # 조립 + 출력
 ```
+
+`generate()`가 내부적으로 하는 일:
+1. `presets.style_block(domain)` + 씬 서술 + 라벨 + SAFE ZONE + PIL금지 지시로 프롬프트 조립
+2. 구도별 비율 결정 (W/F는 `16:9 wide`, 나머지 `4:3 landscape`)
+3. `jobs.json` 기록 후 `codex_parallel_gen.py --effort high` 실행
+4. 산출물 확인 — 없거나 100KB 미만이면 실패로 경고
+
+검수는 `python ../deck_qc.py <out폴더> --cover 01`.
+
 
 ## 5. 그리드 규격 (실측 기반)
 
