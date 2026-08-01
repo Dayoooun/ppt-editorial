@@ -93,3 +93,50 @@ python layout_engine.py                      # → v3_out/*.png + PDF
 - **`--effort high` 없으면 품질이 무너진다.** 씬은 렌더 난이도가 높아 기본 effort로는 평면적으로 나온다.
 - **씬 비율을 용도에 맞게 요청** — W 구도용은 `16:9 wide`, 나머지는 `4:3 landscape`.
 - 헤드라인 2줄이 기본. 1줄이면 허전하고 3줄이면 씬이 눌린다.
+
+## 7. 타이포그래피 — `fonts.py`
+
+**폰트는 절대 하드코딩하지 말고 `fonts.py`를 import 한다.** 맑은 고딕은 사용 금지.
+
+```python
+import sys, os
+sys.path.insert(0, os.path.expanduser(r"~\.claude\skills\ppt-editorial\scripts\scene-deck"))
+from fonts import font, metrics, draw_tracked, recommend
+
+f = font("headline", family="pretendard")     # Pretendard Bold 115
+m = metrics("headline", "pretendard")          # {size, leading, tracking_px}
+draw_tracked(d, (x, y), "헤드라인", f, INK, m["tracking_px"])
+```
+
+### 폰트 풀 (11종 가용, `python fonts.py`로 점검)
+
+| 계열 | 키 | 언제 |
+|---|---|---|
+| 모던 산세 | **`pretendard`** ★기본 | IT·핀테크·컨설팅. 중립적 |
+| | `paperlogy` | 제조·건설·기술. 각지고 견고 |
+| | `a2z` | 디자인·브랜딩. 기하학적 |
+| | `noto` | 공공 제출물(폰트 미설치 대비) |
+| 명조 | `serif_chosun` | 표지 헤드라인. 전통·권위 |
+| | `serif_ridi` | 긴 문장·인용. 읽기 최적화 |
+| | `serif_noto` | 결과보고서. 차분한 격식 |
+| 디스플레이 | `gmarket` | 표지·섹션 **제목만**(본문 금지) |
+| | `euljiro` | 레트로·로컬·전통시장 |
+| 손글씨 | `hand_malang` | 교육·아동·복지의 **강조 문구만** |
+| | `hand_letter` | 감사 인사·클로징 한 줄 |
+
+`recommend("교육 복지")` → 주제에 맞는 조합을 자동 추천한다.
+
+### 황금비 스케일 (φ=1.618, base 38px @2560×1440)
+
+| 역할 | 크기 | 행간 | 자간 |
+|---|---|---|---|
+| display | 121 | 138 | −6.05 |
+| **headline** | **115** | **140** | **−5.17** |
+| title | 95 | 120 | −3.80 |
+| num | 110 | 121 | −5.50 |
+| sub | 38 | 58 | −0.76 |
+| eyebrow | 30 | 36 | **+1.80** (영문 대문자는 벌림) |
+| chrome | 28 | 36 | −0.28 |
+
+**원칙**: 글자가 클수록 자간을 조이고 행간을 붙인다. 작을수록 벌린다.
+영문 eyebrow만 자간을 크게 벌려(+0.08em) 라벨답게 만든다.
