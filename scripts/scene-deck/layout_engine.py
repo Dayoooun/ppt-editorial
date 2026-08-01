@@ -15,6 +15,10 @@ os.makedirs(OUT, exist_ok=True)
 W, H = 2560, 1440
 M = int(W * 0.030)
 
+# SAFE ZONE — 본문이 침범하면 안 되는 상하 경계 (크롬이 차지하는 영역)
+BODY_TOP = int(H * 0.150)
+BODY_BOT = int(H * 0.855)
+
 BLUE = (43, 110, 242)
 INK = (22, 29, 43)
 GREY = (122, 132, 148)
@@ -98,6 +102,27 @@ def fit(sc, bw, bh):
 
 
 # ══════════ 구도별 빌더 ══════════
+def _emphasis(im, d, s, x, y):
+    """스펙에 강조 요소가 있으면 렌더. 없으면 no-op.
+    spec 예: {"num": ["2,800", "회", "연간 커밋"], "chips": ["경영", "기술"]}"""
+    hero, pale = BLUE, _pale()
+    if s.get("num"):
+        v = s["num"]
+        y = accent_number(d, x, y, v[0], v[1] if len(v) > 1 else "",
+                          v[2] if len(v) > 2 else "", hero)
+    if s.get("chips"):
+        y = keyword_chips(d, x, y + 8, s["chips"], hero, pale) + 24
+    return y
+
+
+def _pale():
+    """hero에서 밝은 배경색 파생 (칩 배경용)"""
+    r, g, b = BLUE
+    return (min(255, r + (255 - r) * 87 // 100),
+            min(255, g + (255 - g) * 87 // 100),
+            min(255, b + (255 - b) * 87 // 100))
+
+
 def lay_L(im, d, s):
     """좌 텍스트 / 우 씬 — 개념 설명용"""
     sc = scene(s["scene"])
@@ -107,7 +132,8 @@ def lay_L(im, d, s):
         sc = sc.resize((int(sc.width * r), int(sc.height * r)), Image.LANCZOS)
         im.paste(sc, (W - M - int(W * 0.02) - sc.width,
                       int(H * 0.20) + (bh - sc.height) // 2))
-    typo(d, M, int(H * 0.245), s["head"], s["sub"])
+    _y = typo(d, M, int(H * 0.245), s["head"], s["sub"])
+    _emphasis(im, d, s, M, _y + 18)
 
 
 def lay_S(im, d, s):
@@ -118,19 +144,23 @@ def lay_S(im, d, s):
         r = min(bw / sc.width, bh / sc.height)
         sc = sc.resize((int(sc.width * r), int(sc.height * r)), Image.LANCZOS)
         im.paste(sc, (M + int(W * 0.02), int(H * 0.20) + (bh - sc.height) // 2))
-    typo(d, int(W * 0.52), int(H * 0.245), s["head"], s["sub"])
+    _y = typo(d, int(W * 0.52), int(H * 0.245), s["head"], s["sub"])
+    _emphasis(im, d, s, int(W * 0.52), _y + 18)
 
 
 def lay_W(im, d, s):
-    """상단 텍스트 / 하단 와이드 씬 — 프로세스 플로우용"""
+    """상단 텍스트 / 하단 와이드 씬 — 프로세스 플로우용.
+    씬 영역을 고정하지 않고 텍스트가 실제로 차지한 높이 아래 남은 공간을 모두 쓴다.
+    (고정 H*0.40이면 텍스트가 짧을 때 상단이 비고 씬이 하단으로 쏠린다 — 실측)"""
     y = typo(d, M, int(H * 0.16), s["head"], s["sub"], role="title")
+    y = _emphasis(im, d, s, M, y + 10)
     sc = scene(s["scene"])
     if sc:
+        top = y + 28
         bw = W - M * 2 - int(W * 0.04)
-        bh = int(H * 0.40)
-        r = min(bw / sc.width, bh / sc.height)
-        sc = sc.resize((int(sc.width * r), int(sc.height * r)), Image.LANCZOS)
-        im.paste(sc, ((W - sc.width) // 2, int(H * 0.47) + (bh - sc.height) // 2))
+        bh = max(int(H * 0.28), BODY_BOT - top)
+        sc = fit(sc, bw, bh)
+        im.paste(sc, ((W - sc.width) // 2, top + (bh - sc.height) // 2))
 
 
 def lay_C(im, d, s):
@@ -164,7 +194,8 @@ def lay_A(im, d, s):
     if sc:
         sc = fit(sc, int(W * 0.60), int(H * 0.74))
         im.paste(sc, (W - sc.width - int(W * 0.01), int(H * 0.15)))
-    typo(d, M, int(H * 0.22), s["head"], s["sub"])
+    _y = typo(d, M, int(H * 0.22), s["head"], s["sub"])
+    _emphasis(im, d, s, M, _y + 18)
 
 
 def lay_F(im, d, s):
@@ -184,7 +215,8 @@ def lay_T(im, d, s):
     if sc:
         sc = fit(sc, int(W * 0.30), int(H * 0.52))
         im.paste(sc, (int(W * 0.355), int(H * 0.24) + (int(H * 0.52) - sc.height) // 2))
-    typo(d, M, int(H * 0.245), s["head"], s["sub"])
+    y = typo(d, M, int(H * 0.245), s["head"], s["sub"])
+    _emphasis(im, d, s, M, y + 18)
     items = s.get("items") or []
     if items:
         x = int(W * 0.70)
