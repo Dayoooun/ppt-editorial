@@ -153,6 +153,17 @@ def fit(sc, bw, bh):
     return sc.resize((max(1, int(sc.width * r)), max(1, int(sc.height * r))), Image.LANCZOS)
 
 
+def place_right(im, sc, right_x, top):
+    """씬을 우측 기준으로 붙이되 콘텐츠가 여백을 넘지 않게 보정.
+
+    trim()으로 흰 여백을 걷어낸 씬은 콘텐츠가 가장자리에 딱 붙어 있다.
+    그대로 우변에 맞추면 안티에일리어싱 픽셀이 여백선을 넘어 QC가 위반을 잡는다.
+    (실측: A 구도에서 우측 0.990 — 씬이 캔버스 91%를 채운 경우)
+    """
+    pad = max(2, int(sc.width * 0.012))
+    im.paste(sc, (right_x - sc.width - pad, top))
+
+
 # ══════════ 구도별 빌더 ══════════
 def _emphasis(im, d, s, x, y):
     """스펙에 강조 요소가 있으면 렌더. 없으면 no-op.
@@ -182,8 +193,8 @@ def lay_L(im, d, s):
         bw, bh = int(W * 0.42), int(H * 0.60)
         r = min(bw / sc.width, bh / sc.height)
         sc = sc.resize((int(sc.width * r), int(sc.height * r)), Image.LANCZOS)
-        im.paste(sc, (W - M - int(W * 0.02) - sc.width,
-                      int(H * 0.20) + (bh - sc.height) // 2))
+        place_right(im, sc, W - M - int(W * 0.02),
+                    int(H * 0.20) + (bh - sc.height) // 2)
     _y = typo(d, M, int(H * 0.245), s["head"], s["sub"], maxw=int(W * 0.50))
     _emphasis(im, d, s, M, _y + 18)
 
@@ -233,12 +244,14 @@ def lay_C(im, d, s):
 
 # ══════ 확장 구도 (2026-08-01 G003) ══════
 def lay_A(im, d, s):
-    """A — 비대칭 대형: 씬을 화면 우측 60%까지 크게, 텍스트는 좌측 상단에 붙임.
-    임팩트가 필요한 장(오프닝·핵심 주장)에 쓴다."""
+    """A — 비대칭 대형: 씬을 우측에 크게, 텍스트는 좌측 상단.
+    임팩트가 필요한 장(오프닝·핵심 주장)에 쓴다.
+    ★ 씬 우변은 반드시 M(=W*0.030) 안쪽에 둔다. 예전엔 W*0.01 오프셋이라
+      여백을 침범해 deck_qc가 우측 위반을 잡았다(실측 0.979)."""
     sc = scene(s["scene"])
     if sc:
-        sc = fit(sc, int(W * 0.60), int(H * 0.74))
-        im.paste(sc, (W - sc.width - int(W * 0.01), int(H * 0.15)))
+        sc = fit(sc, int(W * 0.58), int(H * 0.70))
+        place_right(im, sc, W - M, int(H * 0.17))
     _y = typo(d, M, int(H * 0.22), s["head"], s["sub"], maxw=int(W * 0.36))
     _emphasis(im, d, s, M, _y + 18)
 

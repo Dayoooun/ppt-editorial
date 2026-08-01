@@ -18,8 +18,12 @@ import os, sys, glob, argparse
 import numpy as np
 from PIL import Image
 
-RIGHT_LIMIT = 0.965      # 이보다 오른쪽까지 콘텐츠가 있으면 여백 부족
-LEFT_LIMIT  = 0.035      # 이보다 왼쪽까지 있으면 여백 부족
+# 씬덱 하네스 규격(layout_engine.M = W*0.030)과 정합. 여기보다 좁으면 오탐이 난다.
+# 실측: M=0.030 설계값에 정확히 맞은 슬라이드가 LEFT_LIMIT 0.035에서 FAIL로 찍혔다.
+# 렌더 안티에일리어싱을 감안해 0.004 여유를 둔다.
+SCENE_DECK_MARGIN = 0.030
+RIGHT_LIMIT = 1.0 - SCENE_DECK_MARGIN + 0.004   # 0.974
+LEFT_LIMIT  = SCENE_DECK_MARGIN - 0.004         # 0.026
 RATIO_TOL   = 0.02       # 종횡비 허용 오차
 
 
@@ -30,7 +34,12 @@ def bounds(im, y0=0.0, y1=1.0):
     band = a[int(H * y0):int(H * y1)]
     if band.size == 0:
         return None
-    bg = int(np.bincount(band.ravel()).argmax())
+    # 배경색은 최빈값이 아니라 **가장자리 색**으로 잡는다.
+    # 카드가 화면 대부분을 덮는 레이아웃(스탯 3분할 등)에서는 카드색이 최빈값이 되어
+    # 진짜 배경(흰색)이 콘텐츠로 판정되는 오탐이 난다. (2026-08-01 실측)
+    edge = np.concatenate([band[:, :3].ravel(), band[:, -3:].ravel(),
+                           band[:2, :].ravel(), band[-2:, :].ravel()])
+    bg = int(np.bincount(edge).argmax())
     c = np.abs(band - bg) > 14
     cols = np.nonzero(c.sum(axis=0) > band.shape[0] * 0.015)[0]
     rows = np.nonzero(c.sum(axis=1) > W * 0.015)[0]
@@ -70,7 +79,9 @@ def main():
             print(" %s  표지 — 여백 검사 제외 (%dx%d)" % (sid, W, H))
             continue
 
-        b = bounds(im, a.safe_top - 0.005, a.safe_bot + 0.005)
+        # 좌우 여백은 SAFE ZONE 안쪽(본문)만 본다.
+        # 크롬 밴드는 풀블리드가 정상이므로 포함하면 오탐(2026-08-01 실측).
+        b = bounds(im, a.safe_top + 0.01, a.safe_bot - 0.01)
         if b is None:
             warns.append((sid, "콘텐츠 미검출"))
             print(" %s  [WARN] 콘텐츠 미검출" % sid); continue
