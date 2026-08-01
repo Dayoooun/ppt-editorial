@@ -413,3 +413,29 @@ d.pptx()                          # PPTX만
 
 판정 기준은 **씬 파일 존재 + 100KB 초과**다(PIL 드로잉 산출물은 보통 50KB 미만이라
 크기로도 걸러진다). 정상 덱에서는 아무 경고도 나오지 않는다.
+
+
+## 19. 수정 워크플로우 연동 (2026-08-01)
+
+`Deck`과 `revise`가 이어진다. 덱을 다시 만들지 말고 고쳐 쓴다.
+
+```python
+d = Deck.load("deck_out/spec.json")
+r = d.revise()                                  # revise.Deck 핸들
+apply_command(r, "3번 헤드라인을 새 제목 로")     # 자연어
+apply_command(r, "5번을 A 구도로")
+r.scene(4, "a redesigned four-step line")       # 씬 교체
+print(r.plan())                                  # 재생성 대상 미리보기
+r.save()                                         # spec.json 갱신
+
+Deck.load("deck_out/spec.json").generate().build()   # 바뀐 씬만 재생성
+```
+
+실측: 텍스트 수정 2건 + 씬 교체 1건 → **"조립만 2건 / 씬 재생성 1장(s04)"**
+으로 정확히 분리. 전면 재생성(6장 540초) 대신 95초.
+
+### 표지 수직 정렬
+
+`lay_COVER`는 텍스트 블록 높이를 **먼저 계산해 세로 중앙**에 놓는다.
+고정 y(0.26)를 쓰면 짧은 표지에서 하단이 크게 비고 상단으로 쏠린다(실측 수정).
+검증: 텍스트 세로 범위 0.292~0.703, 중심 0.498.

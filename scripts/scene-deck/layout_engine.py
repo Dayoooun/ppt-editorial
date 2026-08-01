@@ -347,13 +347,22 @@ def lay_COVER(im, d, s):
     if sc:
         sc = fit(sc, int(W * 0.46), int(H * 0.72))
         place_right(im, sc, W - M, (H - sc.height) // 2)
+    # 텍스트 블록 높이를 먼저 재서 세로 중앙에 놓는다.
+    # 고정 y(0.26)면 짧은 표지에서 하단이 크게 비고 상단으로 쏠린다(실측).
     x = M
-    y = int(H * 0.26)
+    fe_ = f("eyebrow")
+    n_head = len(s["head"])
+    n_sub = len(s.get("sub") or [])
+    n_meta = len(s.get("meta") or [])
+    est = (int(fe_.size * 2.0)
+           + TM("display", FAMILY)["leading"] * n_head + 34
+           + TM("sub", FAMILY)["leading"] * n_sub
+           + 40 + (58 if s.get("issuer") else 0) + 44 * n_meta)
+    y = max(int(H * 0.18), (H - est) // 2)
     # 영문 eyebrow
-    fe = f("eyebrow")
     me = TM("eyebrow", FAMILY)
-    draw_tracked(d, (x, y), s.get("eyebrow", ""), fe, BLUE, me["tracking_px"])
-    y += int(fe.size * 2.0)
+    draw_tracked(d, (x, y), s.get("eyebrow", ""), fe_, BLUE, me["tracking_px"])
+    y += int(fe_.size * 2.0)
     # 초대형 헤드라인
     y = typo(d, x, y, s["head"], s.get("sub") or [],
              role="display", maxw=int(W * 0.46))
