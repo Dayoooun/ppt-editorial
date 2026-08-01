@@ -89,6 +89,33 @@ class Deck:
         self.save()          # 매 추가마다 저장 — generate 후 load 가능하게(실측 버그)
         return self
 
+
+    # ══════ 실무 필수 슬라이드 ══════
+    def cover(self, eyebrow, head, sub=None, issuer=None, meta=None, scene=None):
+        """표지. 크롬(쪽번호·푸터)이 붙지 않는다."""
+        self.slide("COVER", eyebrow, head, sub or [], scene=scene,
+                   ratio="4:3 landscape")
+        self.slides[-1].update({"issuer": issuer or self.foot,
+                                "meta": meta or [], "_nochrome": True})
+        self.save()
+        return self
+
+    def agenda(self, items, head=None, eyebrow="AGENDA", scene=None):
+        """목차. items=["배경","솔루션",...] 또는 [("01","배경"),...]"""
+        norm = [(("%02d" % i), x) if isinstance(x, str) else tuple(x)
+                for i, x in enumerate(items, 1)]
+        self.slide("AGENDA", eyebrow, head or ["목차"], [], scene=scene)
+        self.slides[-1]["items"] = norm
+        self.save()
+        return self
+
+    def closing(self, head, sub=None, issuer=None, scene=None, eyebrow="THANK YOU"):
+        """클로징."""
+        self.slide("CLOSING", eyebrow, head, sub or [], scene=scene)
+        self.slides[-1]["issuer"] = issuer or self.foot
+        self.save()
+        return self
+
     def photos(self, paths, eyebrow, head, sub, lay=None, labels=None, **kw):
         """실사진 슬라이드. 철칙 D — refs로 codex에 전달해 씬 안에서 함께 그린다."""
         from photos import plan, prep, prompt_block
@@ -168,7 +195,8 @@ class Deck:
             im = Image.new("RGB", (LE.W, LE.H), LE.WHITE)
             d = ImageDraw.Draw(im)
             LE.LAY[s["lay"]](im, d, s)
-            LE.chrome(im, d, s["eyebrow"], "%02d" % i, n)
+            if not s.get("_nochrome"):
+                LE.chrome(im, d, s["eyebrow"], "%02d" % i, n)
             im.save(os.path.join(out, "slide_%02d.png" % i))
         print("[조립] %d장 (도메인=%s 폰트=%s)" % (n, self.preset["key"], LE.FAMILY))
         self.save()

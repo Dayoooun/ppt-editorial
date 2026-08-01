@@ -337,8 +337,79 @@ def align_axis(d, x, top, bottom, hero):
     d.rounded_rectangle((x - 22, top, x - 16, bottom), radius=3, fill=hero)
 
 
+
+
+# ══════ 실무 필수 구도 (2026-08-01) — 표지·목차·클로징 ══════
+def lay_COVER(im, d, s):
+    """표지 — 좌 대형타이포 + 발신 정보 / 우 씬. 크롬은 최소화.
+    기준 덱(고객 G·고객 B) 실측: eyebrow(영문) → 초대형 헤드 2줄 → 서브 → 발신주체."""
+    sc = scene(s["scene"])
+    if sc:
+        sc = fit(sc, int(W * 0.46), int(H * 0.72))
+        place_right(im, sc, W - M, (H - sc.height) // 2)
+    x = M
+    y = int(H * 0.26)
+    # 영문 eyebrow
+    fe = f("eyebrow")
+    me = TM("eyebrow", FAMILY)
+    draw_tracked(d, (x, y), s.get("eyebrow", ""), fe, BLUE, me["tracking_px"])
+    y += int(fe.size * 2.0)
+    # 초대형 헤드라인
+    y = typo(d, x, y, s["head"], s.get("sub") or [],
+             role="display", maxw=int(W * 0.46))
+    # 발신 주체 (조직명 + 부가정보)
+    y += 40
+    if s.get("issuer"):
+        d.text((x, y), s["issuer"], font=f("label", 40), fill=INK)
+        y += 58
+    for ln in (s.get("meta") or []):
+        d.text((x, y), ln, font=f("sub", 30), fill=GREY)
+        y += 44
+
+
+def lay_AGENDA(im, d, s):
+    """목차 — 번호 + 제목 리스트. items=[(번호, 제목), ...] 최대 6."""
+    # eyebrow는 크롬이 이미 그린다 — 여기서 또 그리면 중복(실측)
+    x = M
+    y = typo(d, x, int(H * 0.175), s["head"], s.get("sub") or [],
+             role="title", maxw=int(W * 0.60))
+    y += 30
+    items = (s.get("items") or [])[:6]
+    fn = f("num", 54)
+    ft = f("label", 44)
+    for i, it in enumerate(items, 1):
+        num, title = it if isinstance(it, (list, tuple)) else ("%02d" % i, it)
+        d.text((x + 8, y + 6), str(num), font=fn, fill=BLUE)
+        d.text((x + 160, y + 12), title, font=ft, fill=INK)
+        yy = y + 82
+        if i < len(items):
+            d.line([(x, yy), (W - M - int(W * 0.20), yy)], fill=LINE, width=2)
+        y = yy + 18
+    sc = scene(s["scene"])
+    if sc:
+        sc = fit(sc, int(W * 0.30), int(H * 0.50))
+        place_right(im, sc, W - M, int(H * 0.30))
+
+
+def lay_CLOSING(im, d, s):
+    """클로징 — 중앙 엠블럼 씬 + 감사 문구 + 연락 정보(선택)."""
+    y = typo(d, W // 2, int(H * 0.20), s["head"], s.get("sub") or [],
+             role="title", center=True, maxw=int(W * 0.72))
+    sc = scene(s["scene"])
+    if sc:
+        top = y + 30
+        bh = max(int(H * 0.26), int(H * 0.80) - top)
+        sc = fit(sc, int(W * 0.42), bh)
+        im.paste(sc, ((W - sc.width) // 2, top + (bh - sc.height) // 2))
+    if s.get("issuer"):
+        fi = f("label", 38)
+        tw_ = d.textlength(s["issuer"], font=fi)
+        d.text(((W - tw_) / 2, int(H * 0.80)), s["issuer"], font=fi, fill=INK)
+
+
 LAY = {"L": lay_L, "S": lay_S, "W": lay_W, "C": lay_C,
-       "A": lay_A, "F": lay_F, "T": lay_T}
+       "A": lay_A, "F": lay_F, "T": lay_T,
+       "COVER": lay_COVER, "AGENDA": lay_AGENDA, "CLOSING": lay_CLOSING}
 
 SLIDES = [
     {"lay": "L", "eyebrow": "THE PROBLEM", "scene": "s1_gap",

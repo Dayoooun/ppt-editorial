@@ -345,3 +345,38 @@ L·A 구도가 이 함수를 쓴다. C·F·T는 중앙 정렬이라 해당 없�
 
 **실행**: `python deck_qc.py <슬라이드폴더> --cover none`
 검증 덱 5종(유통3·교육3·갭3·식음료5·의료5) 전건 PASS.
+
+
+## 17. 실무 덱 구조 — 표지·목차·클로징 (2026-08-01)
+
+기준 덱(고객 G·고객 B)은 **표지 → 목차 → 본문 → 클로징** 구조다.
+본문 구도만으로는 납품 덱이 되지 않는다.
+
+```python
+d = Deck(domain="제조", foot="OO정밀", title="스마트공장_제안")
+
+d.cover("SMART FACTORY PROPOSAL",
+        ["사람이 못 보는 불량을", "기계가 잡습니다"],
+        ["설비 데이터 기반 실시간 품질 검사"],
+        issuer="(주)OO정밀",
+        meta=["제조혁신 컨설팅 · 2026", "사업자등록 000-00-00000"],
+        scene="a precision inspection module scanning a metal part")
+
+d.agenda(["현황 진단", "불량 발생 구조", "검사 자동화 설계", "도입 로드맵"],
+         scene="four stacked document plates with a gear on top")
+
+d.slide("L", ...)      # 본문
+d.slide("W", ...)
+
+d.closing(["함께 만드는 무결점 라인"], issuer="(주)OO정밀",
+          scene="two robotic arms clasping like a handshake")
+```
+
+| 구도 | 특징 |
+|---|---|
+| `COVER` | **크롬 없음**(쪽번호·푸터 미표시). eyebrow → display 헤드 → 서브 → issuer → meta |
+| `AGENDA` | 번호 + 제목 + 구분선, 우측 씬. 최대 6항목. eyebrow는 크롬이 그리므로 본문에서 생략 |
+| `CLOSING` | 중앙 엠블럼 씬 + 중앙 정렬 헤드 + issuer |
+
+표지는 `_nochrome: True`가 붙어 `build()`가 크롬을 건너뛴다.
+QC 실행 시 표지는 `--cover 01`로 여백 검사에서 제외한다.
