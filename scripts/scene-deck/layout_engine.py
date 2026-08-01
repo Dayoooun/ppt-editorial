@@ -21,14 +21,22 @@ GREY = (122, 132, 148)
 LINE = (228, 231, 236)
 WHITE = (255, 255, 255)
 
-FB = r"C:\Windows\Fonts\malgunbd.ttf"
-FR = r"C:\Windows\Fonts\malgun.ttf"
-FE = r"C:\Windows\Fonts\arialbd.ttf"
+# ── 타이포그래피는 fonts.py 표준을 쓴다 (맑은고딕 하드코딩 금지)
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fonts import font as TF, metrics as TM, draw_tracked   # noqa: E402
+
+FAMILY = "pretendard"      # 프로젝트별로 덮어쓴다 (presets.py의 fonts.head)
 
 FOOT = "작성자 — 경영지도사 · 풀스택 개발"
 
 
-def f(sz, p=FB):
+def f(role, size=None, weight=None):
+    """역할 기반 폰트. f("headline") / f("sub", 28)"""
+    return TF(role, family=FAMILY, size=size, weight=weight)
+
+
+def _legacy_f(sz, p=None):
     return ImageFont.truetype(p, sz)
 
 
@@ -50,30 +58,43 @@ def scene(name):
 def chrome(im, d, eyebrow, num, total):
     ey = int(H * 0.062)
     d.rounded_rectangle((M, ey + 12, M + 62, ey + 20), radius=4, fill=BLUE)
-    d.text((M + 86, ey), eyebrow, font=f(30, FE), fill=BLUE)
-    fn = f(38, FR)
+    d.text((M + 86, ey), eyebrow, font=f("eyebrow"), fill=BLUE)
+    fn = f("chrome", 38)
     d.text((W - M - d.textlength(num, font=fn), ey - 4), num, font=fn, fill=(178, 186, 198))
     by = int(H * 0.889)
     d.line([(M, by), (W - M, by)], fill=LINE, width=2)
-    ff = f(28, FR)
+    ff = f("chrome")
     d.text((M, by + 30), FOOT, font=ff, fill=GREY)
     pg = "%s / %02d" % (num, total)
     d.text((W - M - d.textlength(pg, font=ff), by + 30), pg, font=ff, fill=GREY)
 
 
-def typo(d, x, y, head, sub, hsz=112, align="left", maxw=None):
-    fh = f(hsz)
+def typo(d, x, y, head, sub, role="headline", align="left", center=False, maxw=None):
+    """헤드라인 + 서브 렌더. 크기·행간·자간은 fonts.py 황금비 스케일을 따른다."""
+    if center:
+        align = "center"
+    fh = f(role)
+    mh = TM(role, FAMILY)
     for ln in head:
-        tx = x if align == "left" else x - d.textlength(ln, font=fh) / 2
-        d.text((tx, y), ln, font=fh, fill=INK)
-        y += int(fh.size * 1.22)
+        w = d.textlength(ln, font=fh) + mh["tracking_px"] * max(0, len(ln) - 1)
+        tx = x if align == "left" else x - w / 2
+        draw_tracked(d, (tx, y), ln, fh, INK, mh["tracking_px"])
+        y += mh["leading"]
     y += 34
-    fs = f(38, FR)
+    fs = f("sub")
+    ms = TM("sub", FAMILY)
     for ln in sub:
-        tx = x if align == "left" else x - d.textlength(ln, font=fs) / 2
-        d.text((tx, y), ln, font=fs, fill=GREY)
-        y += int(fs.size * 1.52)
+        w = d.textlength(ln, font=fs) + ms["tracking_px"] * max(0, len(ln) - 1)
+        tx = x if align == "left" else x - w / 2
+        draw_tracked(d, (tx, y), ln, fs, GREY, ms["tracking_px"])
+        y += ms["leading"]
     return y
+
+
+def fit(sc, bw, bh):
+    """씬 이미지를 박스(bw x bh)에 비율 유지로 맞춘다."""
+    r = min(bw / sc.width, bh / sc.height)
+    return sc.resize((max(1, int(sc.width * r)), max(1, int(sc.height * r))), Image.LANCZOS)
 
 
 # ══════════ 구도별 빌더 ══════════
@@ -102,7 +123,7 @@ def lay_S(im, d, s):
 
 def lay_W(im, d, s):
     """상단 텍스트 / 하단 와이드 씬 — 프로세스 플로우용"""
-    y = typo(d, M, int(H * 0.16), s["head"], s["sub"], hsz=96)
+    y = typo(d, M, int(H * 0.16), s["head"], s["sub"], role="title")
     sc = scene(s["scene"])
     if sc:
         bw = W - M * 2 - int(W * 0.04)
@@ -114,16 +135,16 @@ def lay_W(im, d, s):
 
 def lay_C(im, d, s):
     """중앙 정렬 — 비교/교집합 등 대칭 구도용"""
-    fh = f(96)
+    fh = f("title")
     y = int(H * 0.155)
     for ln in s["head"]:
         d.text(((W - d.textlength(ln, font=fh)) / 2, y), ln, font=fh, fill=INK)
-        y += int(fh.size * 1.2)
+        y += TM("title", FAMILY)["leading"]
     y += 20
-    fs = f(36, FR)
+    fs = f("sub", 36)
     for ln in s["sub"]:
         d.text(((W - d.textlength(ln, font=fs)) / 2, y), ln, font=fs, fill=GREY)
-        y += int(fs.size * 1.5)
+        y += TM("sub", FAMILY)["leading"]
     sc = scene(s["scene"])
     if sc:
         bh = int(H * 0.44)
