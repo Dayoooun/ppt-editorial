@@ -173,6 +173,13 @@ class Deck:
         subprocess.run([sys.executable, GEN, "jobs.json", "--retry", "1",
                         "--loop", str(loop), "--timeout", str(timeout),
                         "--effort", effort], cwd=self.dir)
+        # 생성 후 실제 산출 확인 — 실패한 씬을 조용히 넘기지 않는다
+        failed = [j["label"] for j in jb
+                  if not os.path.exists(os.path.join(self.dir, j["out"]))
+                  or os.path.getsize(os.path.join(self.dir, j["out"])) < 100_000]
+        if failed:
+            print("  ⚠ 생성 실패 %d장: %s — 다시 generate() 하면 실패분만 재시도한다"
+                  % (len(failed), ", ".join(failed)))
         self.save()
         return self
 
@@ -184,7 +191,7 @@ class Deck:
         LE.BLUE, LE.INK, LE.GREY, LE.LINE = p["hero"], p["ink"], p["grey"], p["line"]
         LE.FOOT = self.foot
 
-    def build(self, pdf=True):
+    def build(self, pdf=True, pptx=False):
         """조립 + PDF. 씬이 없으면 텍스트만 렌더된다."""
         from PIL import Image, ImageDraw
         self._apply_style()
@@ -198,11 +205,51 @@ class Deck:
             if not s.get("_nochrome"):
                 LE.chrome(im, d, s["eyebrow"], "%02d" % i, n)
             im.save(os.path.join(out, "slide_%02d.png" % i))
+        # 씬 누락 경고 — 조용히 텍스트만 렌더되면 납품물에 빈 슬라이드가 섞인다
+        missing = [("%02d" % i, s.get("scene"))
+                   for i, s in enumerate(self.slides, 1)
+                   if s.get("scene") and not os.path.exists(
+                       os.path.join(self.dir, "scenes", "%s.png" % s.get("scene")))]
         print("[조립] %d장 (도메인=%s 폰트=%s)" % (n, self.preset["key"], LE.FAMILY))
+        if missing:
+            print("  ⚠ 씬 누락 %d장 — 텍스트만 렌더됨: %s"
+                  % (len(missing), ", ".join("%s(%s)" % m for m in missing)))
+            print("    → d.generate() 로 재생성하라")
         self.save()
+        outs = []
         if pdf:
-            return self.pdf()
-        return None
+            outs.append(self.pdf())
+        if pptx:
+            outs.append(self.pptx())
+        return outs[0] if len(outs) == 1 else (outs or None)
+
+    def pptx(self, name=None):
+        """편집 가능한 PPTX 출력. 고객이 PPT 파일을 원할 때.
+        슬라이드 전면에 PNG를 깐 형태라 텍스트 편집은 불가하지만
+        발표 도구(슬라이드쇼·노트·인쇄)를 그대로 쓸 수 있다."""
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches
+        except ImportError:
+            print("[PPTX] python-pptx 미설치 — pip install python-pptx")
+            return None
+        out = os.path.join(self.dir, "out")
+        fs = sorted(glob.glob(os.path.join(out, "slide_*.png")))
+        if not fs:
+            print("[PPTX] 슬라이드 없음 — build() 먼저")
+            return None
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)      # 16:9
+        prs.slide_height = Inches(7.5)
+        blank = prs.slide_layouts[6]
+        for f in fs:
+            sl = prs.slides.add_slide(blank)
+            sl.shapes.add_picture(f, 0, 0, width=prs.slide_width,
+                                  height=prs.slide_height)
+        p = os.path.join(self.dir, (name or self.title or "deck") + ".pptx")
+        prs.save(p)
+        print("[PPTX] %s (%.1f MB)" % (p, os.path.getsize(p) / 1024 / 1024))
+        return p
 
     def pdf(self, name=None):
         import fitz
