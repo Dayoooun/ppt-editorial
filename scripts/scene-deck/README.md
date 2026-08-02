@@ -475,3 +475,42 @@ git add -A && git commit && git push
 풀려 고객 실명이 들어갔고, pre-push 훅이 막았다.
 
 `.git/hooks/pre-push`가 두 검사를 순차 실행하므로 잊어도 푸시는 차단된다.
+
+
+## 20. 디스크 — `.cxwork` 격리 홈
+
+`codex_parallel_gen.py`는 잡마다 `.cxwork/<잡ID>_<시도>/`에 격리 홈을 만든다.
+`CODEX_HOME`을 여기로 잡아 잡끼리 상태가 섞이지 않게 하는 장치다.
+
+**덱 하나당 300~700MB**가 쌓인다. 생성 시작 시와 종료 시 자동으로 지운다.
+
+```bash
+# 디버깅으로 남기고 싶을 때
+python codex_parallel_gen.py jobs.json --keep-work
+```
+
+### 왜 한때 안 지워졌나 (2026-08-02 실측)
+
+`shutil.rmtree`가 `WinError 5`로 실패했다. 292건 전부
+`.codexhome/.tmp/marketplace` 하위 — **codex가 마켓플레이스 캐시를 읽기 전용으로 만든다.**
+
+```python
+def _force(fn, path, exc):
+    os.chmod(path, stat.S_IWRITE)
+    fn(path)
+shutil.rmtree(work, onerror=_force)
+```
+
+⚠️ 처음엔 "taskkill 후 핸들 점유"로 판단해 재시도 4회를 넣었다. 증상만 가려졌다.
+`onerror`로 실제 예외를 찍고 나서야 원인이 파일 속성임이 드러났다.
+
+누적분이 있다면(구버전으로 생성한 덱) 이렇게 회수한다:
+
+```python
+import shutil, os, stat, glob
+def force(fn, path, exc):
+    try: os.chmod(path, stat.S_IWRITE); fn(path)
+    except OSError: pass
+for d in glob.glob("**/.cxwork", recursive=True):
+    shutil.rmtree(d, onerror=force)
+```
