@@ -34,6 +34,9 @@ DOCS = {
     "CLAUDE.md": os.path.expanduser("~/.claude/CLAUDE.md"),
     "SKILL.md":  os.path.join(SKILL_DIR, "SKILL.md"),
     "README.md": os.path.join(SD, "README.md"),
+    # 공개 저장소 루트 README — 외부에서 저장소를 처음 접하는 경로다.
+    # 검사 범위에서 빠져 있어 씬 덱 구조가 전혀 반영 안 된 채 방치됐다(실측).
+    "repo/README.md": os.path.expanduser("~/.pdftool/ppt_repo/README.md"),
 }
 
 # 문서에 남아 있으면 안 되는 구버전 패턴
@@ -73,6 +76,9 @@ def check():
 
     for name, path in DOCS.items():
         if not os.path.exists(path):
+            # 저장소 사본은 환경에 따라 없을 수 있다 — 경고만 하고 진행
+            if name.startswith("repo/"):
+                continue
             problems.append((name, "-", "파일 없음"))
             continue
         text = open(path, encoding="utf-8").read()
@@ -132,4 +138,5 @@ if __name__ == "__main__":
             print("  ★ %-11s %-7s %s" % (doc, loc, msg))
         print("\n  모순 %d건 — 문서를 코드에 맞춰 갱신하라" % len(probs))
         sys.exit(1)
-    print("  모순 0건 — CLAUDE.md / SKILL.md / README.md 전건 정합")
+    checked = [n for n, p in DOCS.items() if os.path.exists(p)]
+    print("  모순 0건 — %s 전건 정합" % " / ".join(checked))
