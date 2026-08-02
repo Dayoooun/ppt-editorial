@@ -288,9 +288,7 @@ def main():
         all_jobs = json.load(f)
     base_dir = os.path.dirname(os.path.abspath(args.jobs_json))
 
-    # ★ 정리는 '시작 시'에 한다. 종료 직후에는 taskkill /T 후에도 Windows가
-    #   핸들을 잡고 있어 rmtree가 실패한다(실측: 재시도 4회에도 567MB 잔존).
-    #   다음 실행 시점에는 핸들이 완전히 풀려 있어 확실히 지워진다.
+    # 시작 시 한 번 — 이전 실행이 비정상 종료해 남긴 것을 회수한다.
     _sweep(base_dir, args.keep_work)
 
     if not args.cap:
@@ -318,7 +316,7 @@ def main():
         if not bad:
             print(f"\n결과: 전 {len(all_jobs)}장 통과 (크기·중복 검증 clean) — 라운드 {rnd}에서 완료", flush=True)
             json.dump({"rounds": rnd, "clean": True}, open(os.path.join(base_dir, "_gen_result.json"), "w"))
-            _hint(base_dir)
+            _sweep(base_dir, args.keep_work)
             return
         print(f"  재생성 대상 {len(bad)}: " + ", ".join(f"{k}[{v}]" for k, v in bad.items()), flush=True)
         pending = [j for j in all_jobs if j.get("label") in bad]
@@ -327,7 +325,7 @@ def main():
     print(f"\n결과: 루프 {args.loop}회 소진, 잔여 {len(bad)}장: " + ", ".join(bad), flush=True)
     json.dump({"rounds": args.loop, "clean": False, "remaining": list(bad)},
               open(os.path.join(base_dir, "_gen_result.json"), "w"), ensure_ascii=False)
-    _hint(base_dir)
+    _sweep(base_dir, args.keep_work)
     sys.exit(1 if bad else 0)
 
 
