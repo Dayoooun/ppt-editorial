@@ -117,6 +117,57 @@ def _deck():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+@check("상위 스크립트")
+def _scripts():
+    """scripts/*.py 전체를 import해 구문·의존성 오류를 잡는다.
+
+    ★ 실측: 스모크가 scene-deck만 봐서 codex_parallel_gen·assemble_pptx 등
+      9개 스크립트가 검증 범위 밖이었다. import만으로도 구문 오류와
+      누락된 의존성은 드러난다.
+    """
+    import importlib.util
+    skip = {"harness_smoke.py"}          # 자기 자신
+    bad = []
+    n = 0
+    for p in sorted(glob.glob(os.path.join(HERE, "*.py"))):
+        name = os.path.basename(p)
+        if name in skip:
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location("_sm_" + name[:-3], p)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            n += 1
+        except SystemExit:
+            n += 1                        # argparse가 인자 없이 종료 — 정상
+        except Exception as e:
+            bad.append("%s(%s)" % (name, type(e).__name__))
+    if bad:
+        raise AssertionError("import 실패: %s" % bad)
+    return "%d개" % n
+
+
+@check("QC 상수 정합")
+def _qc_consts():
+    """deck_qc의 여백 기준이 하네스 규격과 어긋나면 정상 슬라이드를 FAIL 처리한다."""
+    import importlib.util, re
+    p = os.path.join(HERE, "deck_qc.py")
+    src = open(p, encoding="utf-8").read()
+    if "SCENE_DECK_MARGIN" not in src:
+        raise AssertionError("SCENE_DECK_MARGIN 기준 없음 — 하네스 규격과 분리됨")
+    m = re.search(r"SCENE_DECK_MARGIN\s*=\s*([0-9.]+)", src)
+    if not m:
+        raise AssertionError("SCENE_DECK_MARGIN 값 파싱 실패")
+    margin = float(m.group(1))
+    import layout_engine as LE
+    # layout_engine의 실제 좌우 여백 비율과 대조
+    ls = open(os.path.join(SD, "layout_engine.py"), encoding="utf-8").read()
+    m2 = re.search(r"M\s*=\s*(?:int\()?W\s*\*\s*([0-9.]+)", ls)
+    if m2 and abs(float(m2.group(1)) - margin) > 0.001:
+        raise AssertionError("QC %.3f vs 하네스 %.3f 불일치" % (margin, float(m2.group(1))))
+    return "margin %.3f" % margin
+
+
 def main():
     quiet = "--quiet" in sys.argv
     fails = []
