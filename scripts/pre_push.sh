@@ -26,4 +26,8 @@ if git diff --cached --name-only 2>/dev/null | grep -q "doc_consistency.py" ||
     python scripts/doc_consistency.py --selftest || exit 1
 fi
 
+# 4) 하네스 스모크 — 코드가 실제로 도는지 (deprecation 승격 상태)
+#    문서·이미지 검사만으로는 "import는 되는데 실행하면 죽는" 부류를 못 잡는다.
+python scripts/harness_smoke.py --quiet || exit 1
+
 echo "[pre-push] 전 게이트 통과"
