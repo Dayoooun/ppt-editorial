@@ -147,6 +147,62 @@ def check():
                         problems.append(("README.md", "명령표",
                                          "문서에 적힌 명령이 파싱 안 됨: '%s'" % cmd))
 
+    # 7) 문서의 파이썬 예제 — Deck 메서드와 키워드 인자가 실제로 존재하는지
+    #    실측: SKILL.md 예제를 그대로 실행해 검증한 적은 있으나 자동 검사는 없었다.
+    #    메서드 이름이 바뀌면 문서 예제가 조용히 죽는다.
+    import ast as _ast
+    import inspect as _insp
+    import deck as _deck
+    import revise as _rev
+    for name in ("SKILL.md", "README.md", "repo/README.md"):
+        path = DOCS.get(name)
+        if not path or not os.path.exists(path):
+            continue
+        body = open(path, encoding="utf-8").read()
+        for block in re.findall(r"```python\n(.*?)\n```", body, re.S):
+            import textwrap as _tw
+            try:
+                tree = _ast.parse(_tw.dedent(block))
+            except SyntaxError:
+                # 설명용 부분 코드(들여쓴 조각, 생략 기호 포함)는 검사 대상이 아니다.
+                continue
+            for node in _ast.walk(tree):
+                if not isinstance(node, _ast.Call):
+                    continue
+                fn = node.func
+                if not isinstance(fn, _ast.Attribute):
+                    continue
+                # ★ Deck 호출만 골라낸다. Call이면 무조건 Deck으로 보면
+                #   np.array(...).astype() 같은 것까지 잡는다(실측 오탐 2건).
+                base = fn.value
+                if isinstance(base, _ast.Name):
+                    is_deck = base.id in ("d", "Deck")
+                elif isinstance(base, _ast.Call):
+                    f2 = base.func
+                    is_deck = (isinstance(f2, _ast.Name) and f2.id == "Deck") or \
+                              (isinstance(f2, _ast.Attribute)
+                               and isinstance(f2.value, _ast.Name) and f2.value.id == "Deck")
+                else:
+                    is_deck = False
+                if not is_deck:
+                    continue
+                # 같은 블록이 revise.Deck을 import했으면 그쪽 클래스로 본다.
+                # deck.Deck과 revise.Deck은 이름만 같고 API가 다르다(실측 오탐 3건).
+                cls = _rev.Deck if "from revise import" in block else _deck.Deck
+                meth = getattr(cls, fn.attr, None)
+                if meth is None:
+                    problems.append((name, "예제", "%s.%s 없음"
+                                     % (cls.__module__.split(".")[-1], fn.attr)))
+                    continue
+                try:
+                    params = set(_insp.signature(meth).parameters)
+                except (TypeError, ValueError):
+                    continue
+                for kw in node.keywords:
+                    if kw.arg and kw.arg not in params:
+                        problems.append((name, "예제",
+                                         "Deck.%s(%s=) 인자 없음" % (fn.attr, kw.arg)))
+
     return f, problems
 
 
