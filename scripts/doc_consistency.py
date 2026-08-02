@@ -55,7 +55,7 @@ STALE = [
 def code_facts():
     """코드에서 실제 값을 읽는다"""
     import layout_engine as LE
-    import presets, fonts, photos, deck
+    import presets, fonts, photos, deck, revise
     return {
         "구도_개수": len(LE.LAY),
         "구도_코드": sorted(LE.LAY),
@@ -63,6 +63,7 @@ def code_facts():
         "헤드라인_px": fonts.TYPE_SCALE["headline"],
         "표지_px": fonts.TYPE_SCALE["display"],
         "사진_모드": len(photos.ARRANGE),
+        "revise_패턴": len(revise.PATTERNS),
         "Deck_메서드": [m for m in ("cover", "agenda", "closing", "slide",
                                    "photos", "generate", "build", "pdf",
                                    "pptx", "revise", "load")
@@ -123,6 +124,28 @@ def check():
             if int(m.group(1)) != f["도메인_개수"]:
                 problems.append((name, "%d행" % (text[:m.start()].count("\n") + 1),
                                  "도메인 %s종 주장 ≠ 실제 %d종" % (m.group(1), f["도메인_개수"])))
+
+    # 6) README의 자연어 명령 표 — 적어둔 명령이 실제로 파싱되는지
+    #    실측: 파서를 고친 뒤 문서만 남고 코드가 어긋나면 사용자가 오답을 배운다.
+    rd = DOCS.get("README.md")
+    if rd and os.path.exists(rd):
+        import json as _json
+        text = open(rd, encoding="utf-8").read()
+        i = text.find("### 지원하는 자연어 명령")
+        if i >= 0:
+            import revise as _rv
+            spec = {"domain": "it", "foot": "x", "slides": [
+                {"lay": "L", "eyebrow": "A", "scene": "s%02d" % k,
+                 "head": ["h%d" % k], "sub": ["s"]} for k in range(1, 6)]}
+            for row in text[i:i + 1200].split("\n"):
+                if not row.startswith("| `"):
+                    continue
+                cell = row.split("|")[1]
+                for cmd in re.findall(r"`([^`]+)`", cell):
+                    d = _rv.Deck(_json.loads(_json.dumps(spec)))
+                    if _rv.apply_command(d, cmd) is None:
+                        problems.append(("README.md", "명령표",
+                                         "문서에 적힌 명령이 파싱 안 됨: '%s'" % cmd))
 
     return f, problems
 
