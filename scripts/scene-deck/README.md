@@ -452,3 +452,26 @@ Deck.load("deck_out/spec.json").generate().build()   # 바뀐 씬만 재생성
 `lay_COVER`는 텍스트 블록 높이를 **먼저 계산해 세로 중앙**에 놓는다.
 고정 y(0.26)를 쓰면 짧은 표지에서 하단이 크게 비고 상단으로 쏠린다(실측 수정).
 검증: 텍스트 세로 범위 0.292~0.703, 중심 0.498.
+
+
+## 19. 공개 저장소 동기화
+
+스킬 원본을 `Dayoooun/ppt-editorial`(public)에 반영할 때 **`cp`를 직접 쓰지 마라.**
+
+```bash
+cd ~/.pdftool/ppt_repo
+python scripts/sync_from_skill.py --dry   # 무엇이 바뀌는지
+python scripts/sync_from_skill.py         # 복사 + 익명화 + 검사
+git add -A && git commit && git push
+```
+
+`sync_from_skill.py`가 하는 일:
+1. 12개 파일쌍을 md5 비교해 **변경분만** 복사
+2. **복사 직후 익명화**(`anonymize_check --fix`) — 이 순서가 핵심
+3. `anonymize_check` + `doc_consistency` 검사 실행
+
+⚠️ 복사와 익명화를 따로 하면 **반드시 잊는다.** 실측으로 같은 사고가 2번 났다.
+두 번째는 `doc_consistency.py`를 푸시하던 중 README를 복사하자마자 익명화가
+풀려 고객 실명이 들어갔고, pre-push 훅이 막았다.
+
+`.git/hooks/pre-push`가 두 검사를 순차 실행하므로 잊어도 푸시는 차단된다.
