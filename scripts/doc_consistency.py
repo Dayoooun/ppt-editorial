@@ -118,9 +118,13 @@ def check():
             # 단일 문자 코드(L/S/W/C/A/F/T)는 일반 단어에 묻히므로
             # 백틱·괄호·굵게 표시 안에 있을 때만 '나열됨'으로 본다.
             def listed(c):
+                # 단일 문자 코드(L/S/W/C/A/F/T)는 일반 단어에 묻히므로
+                # 백틱·괄호·굵게 표시 안에 있을 때만 인정한다.
                 if len(c) == 1:
                     return re.search(r"[`*(\s]%s[`*)\s(,·/]" % c, text) is not None
-                return c in text
+                # ★ 다중 문자도 경계를 봐야 한다. `c in text`면
+                #   AGENDAX가 AGENDA를 포함해 통과한다(실측: selftest가 놓쳤다).
+                return re.search(r"(?<![A-Za-z])%s(?![A-Za-z])" % c, text) is not None
             missing = [c for c in f["구도_코드"] if not listed(c)]
             if missing:
                 problems.append((name, "-", "구도 나열 누락: %s" % ", ".join(missing)))
@@ -263,9 +267,18 @@ def selftest():
         ("5 도메인개수", "README.md", "9종: `it`", "3종: `it`"),
         ("6 명령표",     "README.md", "`1번 씬 다시`", "`1번 씬 갈아엎어`"),
         ("7 예제API",    "SKILL.md",  "d.generate()", "d.nosuchmethod()"),
+        # 검사 3 — 구도 코드 하나를 전부 지우면 잡혀야 한다.
+        #   ★ 한 곳만 바꾸면 다른 등장 지점이 매칭돼 통과한다(실측).
+        #      CLOSING은 README에 한 번만 나오므로 이걸 쓴다.
+        # 구도 코드는 문서에 여러 번 나오므로 전부 바꿔야 '누락'이 된다.
+        ("3 구도나열",   "README.md", "CLOSING", "CLOSINGX", True),
+        # 검사 8 — 스모크 항목 수 주장이 실제와 다르면 잡혀야 한다
+        ("8 스모크항목", "SKILL.md",  "7항목 수초 검증", "9항목 수초 검증"),
     ]
     ok = 0
-    for label, doc, find, repl in CASES:
+    for case in CASES:
+        label, doc, find, repl = case[:4]
+        replace_all = len(case) > 4 and case[4]
         path = DOCS.get(doc)
         if not path or not os.path.exists(path):
             print("  %-14s SKIP (%s 없음)" % (label, doc))
@@ -277,7 +290,9 @@ def selftest():
             if find not in body:
                 print("  %-14s SKIP (주입 지점 없음)" % label)
                 continue
-            open(path, "w", encoding="utf-8").write(body.replace(find, repl, 1))
+            open(path, "w", encoding="utf-8").write(
+                body.replace(find, repl) if replace_all
+                else body.replace(find, repl, 1))
             _, probs = check()
             hit = len(probs) > 0
             print("  %-14s %s" % (label, "검출 OK" if hit else "★놓침"))
