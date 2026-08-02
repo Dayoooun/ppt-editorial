@@ -146,6 +146,7 @@ d.build(pdf=True, pptx=True)    # 조립 + 출력
 | `scripts/sync_from_skill.py` | 스킬 원본 → 이 저장소 **복사 + 익명화 + 검사** |
 | `scripts/anonymize_check.py` | 고객 실명·이메일·전화 검사 |
 | `scripts/doc_consistency.py` | **코드 실측값 vs 문서 주장** 대조 |
+| `scripts/harness_smoke.py` | **코드가 실제로 도는지** (수초, deprecation 승격) |
 
 ```bash
 python scripts/sync_from_skill.py --dry   # 변경분 확인
