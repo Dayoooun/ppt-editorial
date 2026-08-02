@@ -258,7 +258,25 @@ def selftest():
     ★ 검사기가 커지면 '통과'가 검사를 안 해서인지 문제가 없어서인지 알 수 없다.
       각 검사마다 걸려야 할 문자열을 넣고 잡히는지 본다.
     """
-    import shutil, tempfile
+    import shutil
+
+    # ★ 백업을 문서 옆에 예측 가능한 이름으로 둔다.
+    #   tempfile.mktemp()는 임시 폴더에 흩어져 중단 시 복구 지점을 못 찾는다.
+    #   시작할 때 이전 실행이 남긴 백업이 있으면 먼저 복구한다.
+    SUF = ".selftest-bak"
+
+    def _recover():
+        n = 0
+        for _, p in DOCS.items():
+            b = p + SUF
+            if p and os.path.exists(b):
+                shutil.copy(b, p)
+                os.remove(b)
+                n += 1
+        if n:
+            print("  [복구] 이전 실행이 남긴 백업 %d개에서 원복" % n)
+
+    _recover()
 
     CASES = [
         ("1 구버전패턴", "README.md", "구도 10종", "scene_prompts 를 쓴다"),
@@ -283,7 +301,7 @@ def selftest():
         if not path or not os.path.exists(path):
             print("  %-14s SKIP (%s 없음)" % (label, doc))
             continue
-        bak = tempfile.mktemp(suffix=".bak")
+        bak = path + SUF
         shutil.copy(path, bak)
         try:
             body = open(path, encoding="utf-8").read()

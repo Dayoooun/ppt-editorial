@@ -8,3 +8,6 @@ out/
 slides/
 final*/
 jobs*.json
+
+# selftest 중단 시 남는 백업 (다음 실행이 자동 복구)
+*.selftest-bak
