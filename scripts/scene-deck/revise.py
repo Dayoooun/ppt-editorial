@@ -129,16 +129,21 @@ class Deck:
         return self
 
     # ══════ SCENE 수정 (해당 장만 재생성) ══════
-    def scene(self, n, body, ratio=None):
-        """씬 내용 교체 → 해당 슬라이드만 재생성 대상"""
+    def scene(self, n, body=None, ratio=None):
+        """씬 수정 → 해당 슬라이드만 재생성 대상.
+
+        body를 주면 내용을 교체하고, 생략하면 기존 프롬프트로 다시 뽑는다
+        ("1번 씬 다시" — 프롬프트는 좋은데 결과가 마음에 안 들 때).
+        """
         s = self._slide(n)
-        s["scene_body"] = body
+        if body is not None:
+            s["scene_body"] = body
         if ratio:
             s["scene_ratio"] = ratio
         sid = s.get("scene") or "s%02d" % n
         s["scene"] = sid
         self.dirty_scenes.add(sid)
-        self._rec("SCENE", n, "씬 교체")
+        self._rec("SCENE", n, "씬 교체" if body is not None else "씬 재생성")
         return self
 
     def label(self, n, *labels):
@@ -204,6 +209,12 @@ PATTERNS = [
      lambda d, m: d.sub(int(m.group(1)), *[x.strip() for x in m.group(2).split("/")])),
     (r"(\d+)\s*번.*?([LSWCAFT])\s*구도",
      lambda d, m: d.lay(int(m.group(1)), m.group(2))),
+    # "2번 구도를 W로" — 구도가 코드 앞에 오는 어순. 실측: 이 형태가 더 자연스러운데 안 먹혔다.
+    (r"(\d+)\s*번.*?구도\s*(?:을|를)?\s*([LSWCAFT])\s*(?:로|으로)?",
+     lambda d, m: d.lay(int(m.group(1)), m.group(2))),
+    # "1번 씬 다시" / "3번 씬 재생성" — 씬 재생성은 핵심 기능인데 자연어 경로가 없었다.
+    (r"(\d+)\s*번.*?씬\s*(?:을|를)?\s*(?:다시|재생성|새로|바꿔|교체)",
+     lambda d, m: d.scene(int(m.group(1)))),
     (r"(\d+)\s*번.*?(\d+)\s*번.*?(?:으?로)?\s*(?:이동|옮)",
      lambda d, m: d.move(int(m.group(1)), int(m.group(2)))),
     (r"(?:색|팔레트|컬러)\s*(?:을|를)?\s*(\S+?)\s*(?:로|으로)",
