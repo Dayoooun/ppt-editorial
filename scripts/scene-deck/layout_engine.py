@@ -32,7 +32,7 @@ from fonts import font as TF, metrics as TM, draw_tracked   # noqa: E402
 
 FAMILY = "pretendard"      # 프로젝트별로 덮어쓴다 (presets.py의 fonts.head)
 
-FOOT = "작성자 — 경영지도사 · 풀스택 개발"
+FOOT = ""                  # 발신주체. Deck(foot=...) 로 넘긴다 — 하드코딩 금지
 
 
 def f(role, size=None, weight=None):
@@ -342,7 +342,7 @@ def align_axis(d, x, top, bottom, hero):
 # ══════ 실무 필수 구도 (2026-08-01) — 표지·목차·클로징 ══════
 def lay_COVER(im, d, s):
     """표지 — 좌 대형타이포 + 발신 정보 / 우 씬. 크롬은 최소화.
-    기준 덱(고객 G·고객 B) 실측: eyebrow(영문) → 초대형 헤드 2줄 → 서브 → 발신주체."""
+    기준 덱 실측: eyebrow(영문) → 초대형 헤드 2줄 → 서브 → 발신주체."""
     sc = scene(s["scene"])
     if sc:
         sc = fit(sc, int(W * 0.46), int(H * 0.72))
@@ -457,6 +457,6 @@ if __name__ == "__main__":
     for i in range(n):
         pg = doc.new_page(width=1280, height=720)
         pg.insert_image(pg.rect, filename=os.path.join(OUT, "slide_%02d.png" % (i + 1)))
-    p = os.path.join(BASE, "작성자_컨설팅소개_v3.pdf")
+    p = os.path.join(BASE, "deck_컨설팅소개_v3.pdf")
     doc.save(p, deflate=True)
     print("→", p, "%.1f MB" % (os.path.getsize(p) / 1024 / 1024))
