@@ -90,3 +90,67 @@ git clone https://github.com/Dayoooun/ppt-editorial.git
 ## 라이선스
 
 MIT — `LICENSE` 참조.
+
+
+---
+
+## ★ 씬 덱 (Scene Deck) — 기본 프로파일
+
+고객 납품·피칭·제안은 여기서 시작한다. 상세는 `scripts/scene-deck/README.md`(19절).
+
+```python
+import sys, os
+sys.path.insert(0, "scripts/scene-deck")
+from deck import Deck
+
+d = Deck(domain="제조", foot="OO정밀", title="제안서")
+d.cover("PROPOSAL", ["헤드라인", "2줄"], ["서브"], issuer="(주)OO정밀",
+        meta=["2026"], scene="영문 씬 서술")
+d.agenda(["배경", "과제", "계획"], scene="...")
+d.slide("L", "SECTION", ["헤드라인"], ["서브"], scene="...", labels=["라벨"])
+d.slide("C", "RESULT", ["결과"], ["..."], scene="...",
+        num=["42", "%", "캡션"], chips=["키워드1", "키워드2"])
+d.photos(["a.jpg", "b.jpg"], "ON SITE", ["현장"], ["..."])
+d.closing(["감사합니다"], issuer="(주)OO정밀", scene="...")
+
+d.generate()                    # 씬 생성 (있으면 생략)
+d.build(pdf=True, pptx=True)    # 조립 + 출력
+```
+
+`domain` 한 줄로 팔레트·폰트·씬모티프·톤이 잡힌다.
+
+### 구성
+
+| 파일 | 역할 |
+|---|---|
+| `scripts/scene-deck/deck.py` | **진입점** — build.py를 새로 쓰지 마라 |
+| `scripts/scene-deck/presets.py` | 도메인 9종 (it/food/manufacturing/education/welfare/culture/public/medical/retail) |
+| `scripts/scene-deck/layout_engine.py` | 구도 10종 + 강조요소 + 오버플로우 방어 |
+| `scripts/scene-deck/fonts.py` | 폰트 풀 11종 + 황금비 스케일 |
+| `scripts/scene-deck/revise.py` | 수정 인터페이스 (자연어 + API) |
+| `scripts/scene-deck/photos.py` | 실사진 4모드 |
+
+### 구도 10종
+
+본문 `L`(좌텍/우씬) `S`(반전) `W`(프로세스) `C`(비교·교집합)
+`A`(비대칭대형) `F`(전면) `T`(3분할) / 실무 `COVER` `AGENDA` `CLOSING`
+
+**연속 3장 이상 같은 구도 금지.**
+
+---
+
+## 저장소 관리 도구
+
+| 도구 | 용도 |
+|---|---|
+| `scripts/sync_from_skill.py` | 스킬 원본 → 이 저장소 **복사 + 익명화 + 검사** |
+| `scripts/anonymize_check.py` | 고객 실명·이메일·전화 검사 |
+| `scripts/doc_consistency.py` | **코드 실측값 vs 문서 주장** 대조 |
+
+```bash
+python scripts/sync_from_skill.py --dry   # 변경분 확인
+python scripts/sync_from_skill.py         # 복사 + 익명화 + 검사
+```
+
+⚠️ **`cp`를 직접 쓰지 마라.** 익명화를 잊어 실명이 공개된 사고가 2번 났다.
+`.git/hooks/pre-push`가 두 검사를 순차 실행해 실패 시 푸시를 차단한다.
