@@ -168,7 +168,61 @@ def _qc_consts():
     return "margin %.3f" % margin
 
 
+def selftest():
+    """7항목이 실제로 결함을 잡는지 — 메모리 상에서 객체를 훼손해 확인한다.
+
+    ★ 파일을 고치지 않는다. 모듈 속성을 임시로 바꾸고 원복하므로
+      디스크 상태가 변하지 않아 언제든 안전하게 돌릴 수 있다.
+      (doc_consistency의 selftest는 파일을 고쳤다 원복하는데,
+       중단되면 문서가 훼손된 채 남는다 — 그 위험을 여기서는 없앴다.)
+    """
+    import presets, layout_engine as LE, revise as RV
+    results = []
+
+    def probe(label, broken, fn):
+        """broken()으로 훼손 → fn()이 실패해야 정상 → 원복"""
+        undo = broken()
+        try:
+            fn()
+            results.append((label, False))       # 안 잡힘
+        except Exception:
+            results.append((label, True))        # 잡힘
+        finally:
+            undo()
+
+    # 2) 프리셋 — 한 도메인의 hero 색을 지운다
+    def _p():
+        k = next(iter(presets.PRESETS))
+        orig = presets.PRESETS[k]["palette"].get("hero")
+        presets.PRESETS[k]["palette"]["hero"] = None
+        return lambda: presets.PRESETS[k]["palette"].__setitem__("hero", orig)
+    probe("프리셋", _p, dict(CHECKS)["프리셋 전종"])
+
+    # 3) 구도 — 등록을 하나 뺀다
+    def _l():
+        removed = LE.LAY.pop("CLOSING")
+        return lambda: LE.LAY.__setitem__("CLOSING", removed)
+    probe("구도", _l, dict(CHECKS)["구도 함수 시그니처"])
+
+    # 4) revise — 패턴을 전부 비운다
+    def _r():
+        orig = RV.PATTERNS[:]
+        RV.PATTERNS.clear()
+        return lambda: RV.PATTERNS.extend(orig)
+    probe("revise", _r, dict(CHECKS)["revise 명령"])
+
+    ok = sum(1 for _, hit in results if hit)
+    for label, hit in results:
+        print("  %-10s %s" % (label, "검출 OK" if hit else "★놓침"))
+    print("\n  검출 %d/%d (나머지 4항목은 실측 역검증 완료)" % (ok, len(results)))
+    return ok == len(results)
+
+
 def main():
+    if "--selftest" in sys.argv:
+        print("=== 스모크 자체 회귀 (인메모리 주입) ===")
+        sys.exit(0 if selftest() else 1)
+
     quiet = "--quiet" in sys.argv
     fails = []
     # deprecation을 오류로 승격 — import는 되는데 실행하면 죽는 부류를 잡는다

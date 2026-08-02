@@ -30,4 +30,11 @@ fi
 #    문서·이미지 검사만으로는 "import는 되는데 실행하면 죽는" 부류를 못 잡는다.
 python scripts/harness_smoke.py --quiet || exit 1
 
+# 스모크 자체를 고쳤으면 인메모리 자체 회귀까지 (파일을 건드리지 않으므로 안전)
+if git diff --cached --name-only 2>/dev/null | grep -q "harness_smoke.py" ||
+   git diff --name-only HEAD~1 2>/dev/null | grep -q "harness_smoke.py"; then
+    echo "[pre-push] harness_smoke.py 변경 감지 — 자체 회귀 실행"
+    python scripts/harness_smoke.py --selftest || exit 1
+fi
+
 echo "[pre-push] 전 게이트 통과"
