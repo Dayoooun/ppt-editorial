@@ -120,10 +120,15 @@ def check():
                                  "헤드라인 %spx 주장 ≠ 실제 %dpx" % (m.group(1), f["헤드라인_px"])))
 
         # 5) 도메인 개수
-        for m in re.finditer(r"도메인\s*(?:프리셋\s*)?(\d+)\s*종", text):
-            if int(m.group(1)) != f["도메인_개수"]:
-                problems.append((name, "%d행" % (text[:m.start()].count("\n") + 1),
-                                 "도메인 %s종 주장 ≠ 실제 %d종" % (m.group(1), f["도메인_개수"])))
+        # "도메인 9종" 뿐 아니라 프리셋 절의 "9종: `it` `food` ..." 형태도 대조한다.
+        # 실측: README는 후자만 쓰는데 정규식이 전자만 봐서 검사에 안 걸렸다.
+        dom_pats = [r"도메인\s*(?:프리셋\s*)?(\d+)\s*종",
+                    r"^(\d+)\s*종:\s*`"]
+        for dp in dom_pats:
+            for m in re.finditer(dp, text, re.M):
+                if int(m.group(1)) != f["도메인_개수"]:
+                    problems.append((name, "%d행" % (text[:m.start()].count("\n") + 1),
+                                     "도메인 %s종 주장 ≠ 실제 %d종" % (m.group(1), f["도메인_개수"])))
 
     # 6) README의 자연어 명령 표 — 적어둔 명령이 실제로 파싱되는지
     #    실측: 파서를 고친 뒤 문서만 남고 코드가 어긋나면 사용자가 오답을 배운다.
@@ -206,7 +211,56 @@ def check():
     return f, problems
 
 
+def selftest():
+    """7개 검사가 실제로 문제를 잡는지 — 문서에 결함을 주입해 확인한다.
+
+    ★ 검사기가 커지면 '통과'가 검사를 안 해서인지 문제가 없어서인지 알 수 없다.
+      각 검사마다 걸려야 할 문자열을 넣고 잡히는지 본다.
+    """
+    import shutil, tempfile
+
+    CASES = [
+        ("1 구버전패턴", "README.md", "구도 10종", "scene_prompts 를 쓴다"),
+        ("2 구도개수",   "README.md", "## 8. 구도 10종", "## 8. 구도 5종"),
+        ("4 헤드라인px", "README.md", "헤드라인", "헤드라인 999px"),
+        ("5 도메인개수", "README.md", "9종: `it`", "3종: `it`"),
+        ("6 명령표",     "README.md", "`1번 씬 다시`", "`1번 씬 갈아엎어`"),
+        ("7 예제API",    "SKILL.md",  "d.generate()", "d.nosuchmethod()"),
+    ]
+    ok = 0
+    for label, doc, find, repl in CASES:
+        path = DOCS.get(doc)
+        if not path or not os.path.exists(path):
+            print("  %-14s SKIP (%s 없음)" % (label, doc))
+            continue
+        bak = tempfile.mktemp(suffix=".bak")
+        shutil.copy(path, bak)
+        try:
+            body = open(path, encoding="utf-8").read()
+            if find not in body:
+                print("  %-14s SKIP (주입 지점 없음)" % label)
+                continue
+            open(path, "w", encoding="utf-8").write(body.replace(find, repl, 1))
+            _, probs = check()
+            hit = len(probs) > 0
+            print("  %-14s %s" % (label, "검출 OK" if hit else "★놓침"))
+            ok += 1 if hit else 0
+        finally:
+            shutil.copy(bak, path)
+            os.remove(bak)
+
+    _, probs = check()
+    clean = not probs
+    print("\n  원복 후 모순: %d건 %s" % (len(probs), "OK" if clean else "★"))
+    print("  검출 %d/%d" % (ok, len(CASES)))
+    return ok == len(CASES) and clean
+
+
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        print("=== 검사기 자체 회귀 (문제 주입) ===")
+        sys.exit(0 if selftest() else 1)
+
     facts, probs = check()
     print("=== 코드 실측 ===")
     for k, v in facts.items():
