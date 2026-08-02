@@ -23,22 +23,31 @@ import os, shutil, subprocess, sys, hashlib
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKILL = os.path.expanduser(r"~\.claude\skills\ppt-editorial")
 
-# (스킬 원본 상대경로, 저장소 상대경로)
-PAIRS = [
-    ("SKILL.md",                          "SKILL.md"),
-    ("scripts/codex_parallel_gen.py",     "scripts/codex_parallel_gen.py"),
-    ("scripts/deck_qc.py",                "scripts/deck_qc.py"),
-    ("scripts/doc_consistency.py",        "scripts/doc_consistency.py"),
-    ("scripts/scene-deck/deck.py",        "scripts/scene-deck/deck.py"),
-    ("scripts/scene-deck/presets.py",     "scripts/scene-deck/presets.py"),
-    ("scripts/scene-deck/layout_engine.py", "scripts/scene-deck/layout_engine.py"),
-    ("scripts/scene-deck/fonts.py",       "scripts/scene-deck/fonts.py"),
-    ("scripts/scene-deck/revise.py",      "scripts/scene-deck/revise.py"),
-    ("scripts/scene-deck/photos.py",      "scripts/scene-deck/photos.py"),
-    ("scripts/scene-deck/README.md",      "scripts/scene-deck/README.md"),
-    ("scripts/scene-deck/_deprecated/README.md",
-     "scripts/scene-deck/_deprecated/README.md"),
+# 복사 대상은 디렉터리에서 자동 수집한다 — 목록을 손으로 관리하면 반드시 샌다.
+# 실측: 하드코딩 목록에서 5개(assemble_pptx/chrome/index_chrome/salvage_cache/
+# screenshot_frame)가 빠져 있었다.
+ALWAYS = [
+    "SKILL.md",
+    "scripts/scene-deck/README.md",
+    "scripts/scene-deck/_deprecated/README.md",
 ]
+
+
+def pairs():
+    """(스킬 상대경로, 저장소 상대경로) 목록을 자동 생성"""
+    import glob as _g
+    rels = list(ALWAYS)
+    for pat in ("scripts/*.py", "scripts/scene-deck/*.py"):
+        for p in sorted(_g.glob(os.path.join(SKILL, pat))):
+            rels.append(os.path.relpath(p, SKILL).replace(os.sep, "/"))
+    # 저장소 경로는 동일 구조
+    seen, out = set(), []
+    for r in rels:
+        if r in seen:
+            continue
+        seen.add(r)
+        out.append((r, r))
+    return out
 
 
 def md5(p):
@@ -49,7 +58,7 @@ def main():
     dry = "--dry" in sys.argv
     changed = []
 
-    for src_rel, dst_rel in PAIRS:
+    for src_rel, dst_rel in pairs():
         src = os.path.join(SKILL, src_rel)
         dst = os.path.join(REPO, dst_rel)
         if not os.path.exists(src):
