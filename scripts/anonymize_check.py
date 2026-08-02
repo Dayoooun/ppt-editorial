@@ -32,17 +32,22 @@ PHONE = re.compile(r"01[016789][-\s]?\d{3,4}[-\s]?\d{4}")
 
 SELF = os.path.basename(__file__)
 
-# 치환 규칙이나 치환 결과값을 코드에 담는 것이 정상인 파일 —
-# 검사하면 항상 실패한다(실측: sync_from_skill.py의 '010-0000-0000' 오탐).
-EXEMPT = {SELF, "sync_from_skill.py", "sync_harness.py", "secret_check.py"}
+# 치환 규칙 자체를 담은 파일만 전체 제외한다. MAP이 실명을 담는 게 정상이라
+# 검사하면 항상 실패한다.
+FULL_EXEMPT = {SELF}
+
+# 치환 '결과값'만 담는 파일 — 실명은 계속 검사하고 대체값 패턴만 면제한다.
+# 통째로 빼면 나중에 실명이 들어가도 못 잡는다(실측 판단).
+PLACEHOLDER_EXEMPT = {"sync_from_skill.py", "sync_harness.py"}
+PLACEHOLDER = {"010-0000-0000", "example@example.com"}
 
 
 def tracked_text_files():
-    """트래킹된 텍스트 파일. 치환 도구 자신들은 제외한다."""
+    """트래킹된 텍스트 파일. 치환 규칙 파일만 제외한다."""
     out = subprocess.run(["git", "ls-files"], capture_output=True).stdout.decode()
     return [f for f in out.split()
             if f.lower().endswith(TEXT_EXT) and os.path.exists(f)
-            and os.path.basename(f) not in EXEMPT]
+            and os.path.basename(f) not in FULL_EXEMPT]
 
 
 def scan():
@@ -53,6 +58,10 @@ def scan():
         names = [a for a, _ in MAP if a in t]
         mails = [e for e in EMAIL.findall(t) if "example.com" not in e]
         phones = PHONE.findall(t)
+        # 치환 결과값을 코드에 담는 파일은 그 값만 면제 (실명 검사는 유지)
+        if os.path.basename(f) in PLACEHOLDER_EXEMPT:
+            phones = [p for p in phones if p not in PLACEHOLDER]
+            mails = [m for m in mails if m not in PLACEHOLDER]
         if names or mails or phones:
             hits[f] = (names, mails, phones)
     return hits
