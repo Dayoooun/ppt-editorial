@@ -211,6 +211,63 @@ def run_round(jobs, base_dir, cap, retry, effort, model, timeout=590):
     return results
 
 
+def _sweep(base_dir, keep=False):
+    """생성이 끝난 .cxwork 격리 홈을 지운다.
+
+    ★ 잡마다 시작 시 rmtree로 초기화하므로 재사용되지 않는 순수 중간 산물이다.
+      정리하지 않으면 덱 하나당 수백 MB가 쌓인다(실측: 17개 폴더 9.1GB).
+      --keep-work로 디버깅 시 보존할 수 있다.
+    """
+    if keep:
+        return
+    work = os.path.join(base_dir, ".cxwork")
+    if not os.path.isdir(work):
+        return
+    n = sum(len(fs) for _, _, fs in os.walk(work))
+    sz = 0
+    for r, _, fs in os.walk(work):
+        for f in fs:
+            try:
+                sz += os.path.getsize(os.path.join(r, f))
+            except OSError:
+                pass
+
+    # codex가 .codexhome/.tmp/marketplace 캐시를 읽기 전용으로 만든다.
+    # shutil.rmtree는 읽기 전용 파일에서 WinError 5로 실패한다(실측 292건).
+    # onerror로 속성을 풀고 재시도해야 지워진다.
+    import stat as _stat
+
+    def _force(fn, path, exc):
+        try:
+            os.chmod(path, _stat.S_IWRITE)
+            fn(path)
+        except OSError:
+            pass
+
+    shutil.rmtree(work, onerror=_force)
+    left = os.path.isdir(work)
+    if sz:
+        print("[정리] .cxwork %d파일 %.0fMB %s"
+              % (n, sz / 1024 / 1024, "잔존(핸들 점유)" if left else "삭제"), flush=True)
+
+
+def _hint(base_dir):
+    """남은 .cxwork 용량을 알린다. 실제 삭제는 다음 실행 시작 시 이뤄진다."""
+    work = os.path.join(base_dir, ".cxwork")
+    if not os.path.isdir(work):
+        return
+    sz = 0
+    for r, _, fs in os.walk(work):
+        for f in fs:
+            try:
+                sz += os.path.getsize(os.path.join(r, f))
+            except OSError:
+                pass
+    if sz > 50 * 1024 * 1024:
+        print("[안내] .cxwork %.0fMB — 다음 생성 시 자동 정리됨 (즉시: rm -rf %s)"
+              % (sz / 1024 / 1024, work), flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("jobs_json")
@@ -221,6 +278,8 @@ def main():
     ap.add_argument("--effort", default=None, help="reasoning effort (low/medium/high/xhigh)")
     ap.add_argument("--model", default=None, help="codex 모델 (gpt-5.5 최강 / gpt-5.4 균형)")
     ap.add_argument("--timeout", type=int, default=590, help="잡당 codex 타임아웃(초)")
+    ap.add_argument("--keep-work", action="store_true",
+                    help=".cxwork 격리 홈을 남긴다 (디버깅용, 덱당 수백 MB)")
     ap.add_argument("--dup-check", action="store_true",
                     help="중복 헤드라인(오염) 검사 켜기 — 격리 없는 옛 파이프라인에서만. 에디토리얼 덱은 오탐 유발하니 OFF 권장")
     args = ap.parse_args()
@@ -228,6 +287,11 @@ def main():
     with open(args.jobs_json, encoding="utf-8") as f:
         all_jobs = json.load(f)
     base_dir = os.path.dirname(os.path.abspath(args.jobs_json))
+
+    # ★ 정리는 '시작 시'에 한다. 종료 직후에는 taskkill /T 후에도 Windows가
+    #   핸들을 잡고 있어 rmtree가 실패한다(실측: 재시도 4회에도 567MB 잔존).
+    #   다음 실행 시점에는 핸들이 완전히 풀려 있어 확실히 지워진다.
+    _sweep(base_dir, args.keep_work)
 
     if not args.cap:
         # 자동 동시성(2026-08-01 G002): 고정 5는 20코어 머신에서 과소.
@@ -254,6 +318,7 @@ def main():
         if not bad:
             print(f"\n결과: 전 {len(all_jobs)}장 통과 (크기·중복 검증 clean) — 라운드 {rnd}에서 완료", flush=True)
             json.dump({"rounds": rnd, "clean": True}, open(os.path.join(base_dir, "_gen_result.json"), "w"))
+            _hint(base_dir)
             return
         print(f"  재생성 대상 {len(bad)}: " + ", ".join(f"{k}[{v}]" for k, v in bad.items()), flush=True)
         pending = [j for j in all_jobs if j.get("label") in bad]
@@ -262,6 +327,7 @@ def main():
     print(f"\n결과: 루프 {args.loop}회 소진, 잔여 {len(bad)}장: " + ", ".join(bad), flush=True)
     json.dump({"rounds": args.loop, "clean": False, "remaining": list(bad)},
               open(os.path.join(base_dir, "_gen_result.json"), "w"), ensure_ascii=False)
+    _hint(base_dir)
     sys.exit(1 if bad else 0)
 
 
