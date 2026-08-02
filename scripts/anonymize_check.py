@@ -17,13 +17,28 @@
 import os, re, subprocess, sys
 
 # 고객·작성자 실명 → 대체어
-MAP = [
-    ("고객 A", "고객 A"), ("고객 E", "고객 E"), ("고객 C", "고객 C"),
-    ("고객 D", "고객 D"), ("고객 F", "고객 F"), ("고객 B", "고객 B"),
-    ("작성자", "작성자"), ("고객 G", "고객 G"), ("고객 H", "고객 H"),
-    ("OO협동조합", "OO협동조합"),
-    ("업사이클", "업사이클"), ("스마트멀티탭", "스마트멀티탭"),
-]
+# 치환 규칙은 저장소 밖 파일에서 읽는다.
+# ★ 규칙 자체에 실명이 들어가므로 public 저장소에 두면 그 파일이 유출원이 된다.
+#   ~/.claude/secrets/anonymize-map.tsv 형식: <원본>\t<대체어> (# 주석 허용)
+MAP_FILE = os.path.join(os.path.expanduser("~"), ".claude", "secrets", "anonymize-map.tsv")
+
+
+def _load_map():
+    if not os.path.exists(MAP_FILE):
+        print("★ 치환 규칙 없음: %s" % MAP_FILE)
+        print("  <원본>\t<대체어> 형식으로 만들어라. 이 파일은 저장소에 두지 마라.")
+        sys.exit(2)
+    rows = []
+    for line in open(MAP_FILE, encoding="utf-8"):
+        line = line.split("#")[0].strip()
+        if not line or "\t" not in line:
+            continue
+        src, dst = line.split("\t", 1)
+        rows.append((src.strip(), dst.strip()))
+    return rows
+
+
+MAP = _load_map()
 
 TEXT_EXT = (".py", ".md", ".txt", ".json", ".yml", ".yaml", ".toml", ".cfg", ".sh")
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
