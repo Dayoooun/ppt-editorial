@@ -153,4 +153,18 @@ python scripts/sync_from_skill.py         # 복사 + 익명화 + 검사
 ```
 
 ⚠️ **`cp`를 직접 쓰지 마라.** 익명화를 잊어 실명이 공개된 사고가 2번 났다.
-`.git/hooks/pre-push`가 두 검사를 순차 실행해 실패 시 푸시를 차단한다.
+### pre-push 게이트
+
+```bash
+# 설치 (재클론 후 1회)
+printf '#!/bin/sh\nexec "$(git rev-parse --show-toplevel)/scripts/pre_push.sh"\n' \
+  > .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+```
+
+`scripts/pre_push.sh`가 순차 실행한다:
+1. `anonymize_check` — 고객 실명·이메일·전화
+2. `doc_consistency` — 문서-코드 정합
+3. `doc_consistency.py`를 고쳤으면 `--selftest`까지
+
+⚠️ **로직은 `.git/hooks`가 아니라 저장소에 있다.** `.git/hooks`는 클론되지 않으므로
+훅 안에 검사를 쓰면 재클론 시 게이트가 통째로 사라진다.
