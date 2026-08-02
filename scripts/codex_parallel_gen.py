@@ -160,7 +160,12 @@ def _ahash_head(path, hsize=16):
         im = Image.open(path).convert("L")
         W, H = im.size
         strip = im.crop((0, 0, W, int(H * 0.22))).resize((hsize, hsize))
-        px = list(strip.getdata())
+        # Pillow 14(2027-10)에서 Image.getdata()가 제거된다.
+        # get_flattened_data()가 후속 API이나 12.x에는 없으므로 폴백을 둔다.
+        if hasattr(strip, "get_flattened_data"):
+            px = list(strip.get_flattened_data())
+        else:
+            px = list(strip.getdata())
         avg = sum(px) / len(px)
         return sum(1 << i for i, p in enumerate(px) if p > avg)
     except Exception:
