@@ -37,6 +37,11 @@ DOCS = {
     # 공개 저장소 루트 README — 외부에서 저장소를 처음 접하는 경로다.
     # 검사 범위에서 빠져 있어 씬 덱 구조가 전혀 반영 안 된 채 방치됐다(실측).
     "repo/README.md": os.path.expanduser("~/.pdftool/ppt_repo/README.md"),
+    # 인수인계 메모리 — git 추적은 안 되지만 다음 세션이 읽는 문서다.
+    # '스모크 5항목'이라 적어둔 뒤 7항목이 되어 뒤처진 적이 있다(실측).
+    "memory": os.path.expanduser(
+        "~/.claude/projects/D--rlaek-doc-cursor-26new-/memory/"
+        "project_씬덱하네스_프로덕션화_2026-08-01.md"),
 }
 
 # 문서에 남아 있으면 안 되는 구버전 패턴
@@ -77,10 +82,17 @@ def check():
 
     for name, path in DOCS.items():
         if not os.path.exists(path):
-            # 저장소 사본은 환경에 따라 없을 수 있다 — 경고만 하고 진행
-            if name.startswith("repo/"):
+            # 저장소 사본·메모리는 환경에 따라 없을 수 있다
+            if name.startswith("repo/") or name == "memory":
                 continue
             problems.append((name, "-", "파일 없음"))
+            continue
+
+        # ★ 인수인계 메모리는 "이런 실수를 했다"는 이력을 담는다.
+        #   'scene_prompts를 쓰라고 안내했다', '4배라고 보고했다가 정정' 같은
+        #   서술을 현재 주장으로 오인하면 전부 오탐이다(실측 11건).
+        #   현재 사용법을 적는 부분(스모크 항목 수)만 검사 8에서 본다.
+        if name == "memory":
             continue
         text = open(path, encoding="utf-8").read()
 
@@ -207,6 +219,31 @@ def check():
                     if kw.arg and kw.arg not in params:
                         problems.append((name, "예제",
                                          "Deck.%s(%s=) 인자 없음" % (fn.attr, kw.arg)))
+
+    # 8) 스모크 항목 수 — 문서가 "N항목"이라 주장하면 실제 CHECKS 수와 대조
+    try:
+        import importlib.util as _ilu
+        sp = _ilu.spec_from_file_location(
+            "_hs", os.path.join(HERE, "harness_smoke.py"))
+        hs = _ilu.module_from_spec(sp)
+        sp.loader.exec_module(hs)
+        n_checks = len(hs.CHECKS)
+        f["스모크_항목"] = n_checks
+        for name, path in DOCS.items():
+            if not path or not os.path.exists(path):
+                continue
+            body = open(path, encoding="utf-8").read()
+            for m in re.finditer(r"(?:스모크|smoke)[^\n]{0,40}?(\d+)\s*항목", body):
+                if int(m.group(1)) != n_checks:
+                    problems.append((name, "%d행" % (body[:m.start()].count("\n") + 1),
+                                     "스모크 %s항목 주장 ≠ 실제 %d항목"
+                                     % (m.group(1), n_checks)))
+            for m in re.finditer(r"(?:전|총)?\s*(\d+)\s*항목을?\s*(?:수초|확인)", body):
+                if int(m.group(1)) != n_checks:
+                    problems.append((name, "%d행" % (body[:m.start()].count("\n") + 1),
+                                     "%s항목 주장 ≠ 실제 %d항목" % (m.group(1), n_checks)))
+    except Exception:
+        pass
 
     return f, problems
 

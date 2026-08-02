@@ -84,7 +84,7 @@ d.build(pdf=True, pptx=True)      # 조립 + PDF/PPTX
   **파란 풀블리드 밴드 금지**(촌스러움, 실측 반려). 표지는 크롬 없음.
 - 헤드라인 **115px**(2560 캔버스). 씬 생성은 **`--effort high` 필수**.
 - 필수 게이트: `python scripts/deck_qc.py <out폴더> --cover 01`
-- 코드를 고쳤으면: `python scripts/harness_smoke.py` — 5항목 수초 검증(deprecation 승격)
+- 코드를 고쳤으면: `python scripts/harness_smoke.py` — 7항목 수초 검증(deprecation 승격)
 - 디스크: 씬 생성 시 `.cxwork` 격리 홈이 덱당 300~700MB 생긴다. 시작·종료 시 자동 정리(`--keep-work`로 보존). 상세는 scene-deck README §20
 
 > ⚠️ **아이콘 ≠ 씬.** 아이콘(80px 타일)을 키워 큰 영역에 쓰면 "커진 아이콘"으로 보여 싸구려가 된다.
