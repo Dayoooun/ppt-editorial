@@ -37,9 +37,19 @@ def pairs():
     """(스킬 상대경로, 저장소 상대경로) 목록을 자동 생성"""
     import glob as _g
     rels = list(ALWAYS)
-    for pat in ("scripts/*.py", "scripts/scene-deck/*.py"):
-        for p in sorted(_g.glob(os.path.join(SKILL, pat))):
-            rels.append(os.path.relpath(p, SKILL).replace(os.sep, "/"))
+    # ★ 1단계 glob은 하위 디렉터리를 놓친다(실측: scripts/safezone/ 8개가
+    #   공개 저장소에 한 번도 반영되지 않았고, SKILL.md는 그 경로를 참조 중이었다).
+    #   recursive glob으로 전체를 훑고 제외 규칙만 명시한다.
+    SKIP_DIR = ("_deprecated", "__pycache__")
+    SKIP_EXT = (".bak", ".pre_g002", ".pyc", ".selftest-bak")
+    for pat in ("scripts/**/*.py", "scripts/**/*.md"):
+        for p in sorted(_g.glob(os.path.join(SKILL, pat), recursive=True)):
+            rel = os.path.relpath(p, SKILL).replace(os.sep, "/")
+            if any(d in rel.split("/") for d in SKIP_DIR):
+                continue
+            if rel.endswith(SKIP_EXT):
+                continue
+            rels.append(rel)
     # 저장소 경로는 동일 구조
     seen, out = set(), []
     for r in rels:

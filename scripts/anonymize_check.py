@@ -58,10 +58,12 @@ def scan():
         names = [a for a, _ in MAP if a in t]
         mails = [e for e in EMAIL.findall(t) if "example.com" not in e]
         phones = PHONE.findall(t)
-        # 치환 결과값을 코드에 담는 파일은 그 값만 면제 (실명 검사는 유지)
-        if os.path.basename(f) in PLACEHOLDER_EXEMPT:
-            phones = [p for p in phones if p not in PLACEHOLDER]
-            mails = [m for m in mails if m not in PLACEHOLDER]
+        # ★ 치환 결과값은 어느 파일에 있든 위반이 아니다.
+        #   PLACEHOLDER_EXEMPT 파일에서만 면제하면, 익명화가 정상 수행된
+        #   일반 파일이 자기 대체값 때문에 차단된다(실측: safezone/chrome_template.py의
+        #   "고객 A · 010-0000-0000 · example@example.com" — 치환은 제대로 됐다).
+        phones = [p for p in phones if p not in PLACEHOLDER]
+        mails = [m for m in mails if m not in PLACEHOLDER]
         if names or mails or phones:
             hits[f] = (names, mails, phones)
     return hits
