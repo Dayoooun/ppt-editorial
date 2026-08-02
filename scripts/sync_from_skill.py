@@ -50,8 +50,36 @@ def pairs():
     return out
 
 
-def md5(p):
-    return hashlib.md5(open(p, "rb").read()).hexdigest()[:8] if os.path.exists(p) else "-"
+def _anon(text):
+    """익명화 적용 결과를 반환 (anonymize_check와 같은 규칙)"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "ac", os.path.join(REPO, "scripts", "anonymize_check.py"))
+    ac = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ac)
+    for a, b in ac.MAP:
+        text = text.replace(a, b)
+    text = ac.EMAIL.sub("example@example.com", text)
+    return ac.PHONE.sub("010-0000-0000", text)
+
+
+def md5(p, anon=False):
+    """파일 해시. anon=True면 익명화를 적용한 뒤 계산한다.
+
+    ★ 저장소 파일은 익명화된 상태이므로 원본과 그냥 비교하면 영원히 다르다.
+      매번 불필요한 복사가 일어난다(실측: 내용 차이 0줄인데 3파일 변경 판정).
+    """
+    if not os.path.exists(p):
+        return "-"
+    raw = open(p, "rb").read()
+    # 줄바꿈 정규화 — CRLF/LF 차이로 매번 변경 판정되는 것을 막는다(실측)
+    raw = raw.replace(b"\r\n", b"\n")
+    if anon:
+        try:
+            raw = _anon(raw.decode("utf-8")).encode("utf-8")
+        except UnicodeDecodeError:
+            pass
+    return hashlib.md5(raw).hexdigest()[:8]
 
 
 def main():
@@ -64,7 +92,7 @@ def main():
         if not os.path.exists(src):
             print("  ! 원본 없음: %s" % src_rel)
             continue
-        if md5(src) == md5(dst):
+        if md5(src, anon=True) == md5(dst):
             continue
         changed.append(dst_rel)
         if not dry:
